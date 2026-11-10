@@ -34,3 +34,9 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - **Promozione del mese**: MerchantUpdate promo_title/promo_description/promo_start/promo_end (YYYY-MM-DD); Merchant.promo_active computed server-side (Europe/Rome today). Shown highlighted on athlete tessera + merchant cards. end<start → 422.
 - **Avviso nuovi partner**: first time a merchant is visible (self-registration, admin create/publish) → background email to athletes with notify_new_partners != false (toggle in athlete profile); idempotent via merchants.announced_at. Pre-existing partners marked announced in seed.
 - **Object storage (Emergent)**: lib/storage.py. Clients still send data-URL images; backend uploads them (athlete photo private, logos public) and stores `/api/files/{id}` refs (files collection, soft delete on replace). GET /api/files/{id}: logos public; athlete photos only owner/merchant/admin (cookie auth). migrate_images.py moves legacy data URLs.
+
+## v4 additions
+- **Galleria partner**: MerchantUpdate.gallery (max 6 images, data URLs → /api/files refs, public; removed ones soft-deleted). Shown as thumbnails + lightbox on merchant cards.
+- **Classifica sponsor** (admin only): GET /admin/rankings?season=YYYY (season = 1 Sep YYYY → 31 Aug YYYY+1, Europe/Rome; default current; future → 400). Admin tab "Classifica sponsor" with podium + table, ordered by discount granted.
+- **Riepilogo promozioni**: cron "0 9 1 * *" Europe/Rome → POST /api/cron/promo-digest (Bearer secret, idempotent). Sends active promos to athletes with notify_new_partners != false (non-demo) only if ≥1 active promo. Manual: POST /admin/promo-digest/send (button in Report tab).
+- **Foto familiari**: FamilyMemberIn.photo (private file: owner/merchant/admin). PUT /athletes/me/family/{id} edits name/relation/photo. by-code lookup returns family photo for the till.

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ImageUpload from "@/components/ImageUpload";
+import GalleryUpload from "@/components/GalleryUpload";
 import { initials } from "@/lib/format";
 import { useCategories } from "@/lib/session";
 import type { AthleteUpdate, MerchantUpdate } from "@/lib/types";
@@ -63,7 +64,7 @@ export function AthleteFields({ value, onChange }: { value: AthleteUpdate; onCha
 
 export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onChange: (v: MerchantUpdate) => void }) {
   const set = <K extends keyof MerchantUpdate>(k: K, v: MerchantUpdate[K]) => onChange({ ...value, [k]: v });
-  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent" | "promo_description">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
+  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent" | "promo_description" | "gallery">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
     <Field label={label} htmlFor={`m-${k}`} hint={opts.hint}>
       <Input
         id={`m-${k}`}
@@ -106,6 +107,7 @@ export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onC
       <Field label="Descrizione dell'attività" htmlFor="m-description">
         <Textarea id="m-description" rows={3} value={value.description} onChange={(e) => set("description", e.target.value)} data-testid="merchant-description-input" />
       </Field>
+      <GalleryUpload value={value.gallery} onChange={(v) => set("gallery", v)} />
       <div className="space-y-4 rounded-xl border border-gold/40 bg-gold-soft/60 p-4" data-testid="merchant-promo-section">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-gold-ink" />

@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { MapPin, Phone, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { initials, pct } from "@/lib/format";
 import { useMerchants } from "@/lib/session";
 import type { Merchant } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function MerchantCard({ m }: { m: Merchant }) {
+  const [shown, setShown] = useState<number | null>(null);
   return (
     <article
       className="group animate-fade-up flex gap-4 rounded-xl border bg-card p-4 transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40"
@@ -34,6 +36,50 @@ function MerchantCard({ m }: { m: Merchant }) {
           </div>
         )}
         {m.description && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>}
+        {m.gallery.length > 0 && (
+          <div className="mt-2 flex gap-1.5" data-testid={`merchant-gallery-thumbs-${m.id}`}>
+            {m.gallery.slice(0, 4).map((src, i) => (
+              <button
+                key={src}
+                type="button"
+                onClick={() => setShown(i)}
+                className="relative size-12 overflow-hidden rounded-md border transition-transform duration-200 hover:scale-105"
+                data-testid={`merchant-gallery-thumb-${m.id}-${i}`}
+              >
+                <img src={src} alt={`${m.business_name} foto ${i + 1}`} loading="lazy" className="size-full object-cover" />
+                {i === 3 && m.gallery.length > 4 && (
+                  <span className="absolute inset-0 grid place-items-center bg-black/50 text-xs font-semibold text-white">+{m.gallery.length - 4}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+        <Dialog open={shown !== null} onOpenChange={(o) => !o && setShown(null)}>
+          <DialogContent className="sm:max-w-2xl" data-testid={`merchant-gallery-dialog-${m.id}`}>
+            <DialogHeader>
+              <DialogTitle>{m.business_name}</DialogTitle>
+              <DialogDescription>{[m.address, m.city].filter(Boolean).join(", ") || m.sector}</DialogDescription>
+            </DialogHeader>
+            {shown !== null && (
+              <div className="space-y-3">
+                <img src={m.gallery[shown]} alt="" className="max-h-[60dvh] w-full rounded-lg bg-muted object-contain" data-testid="merchant-gallery-large" />
+                <div className="flex justify-center gap-2">
+                  {m.gallery.map((src, i) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => setShown(i)}
+                      className={cn("size-12 overflow-hidden rounded-md border-2 transition-colors", i === shown ? "border-primary" : "border-transparent")}
+                      data-testid={`merchant-gallery-select-${i}`}
+                    >
+                      <img src={src} alt="" className="size-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {(m.address || m.city) && (
             <a

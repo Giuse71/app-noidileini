@@ -13,7 +13,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from lib.auth import require_role
 from lib.db import db
 from lib.email import EMAIL_FROM_NAME, EmailError, send_email
-from models.schemas import MonthlyMerchantRow, MonthlyReport, ReportLog, SendReportResult, now_utc
+from models.schemas import MonthlyMerchantRow, MonthlyReport, Ranking, RankingRow, ReportLog, SendReportResult, now_utc
 
 router = APIRouter(tags=["reports"])
 logger = logging.getLogger(__name__)
@@ -172,3 +172,36 @@ async def admin_send_monthly(month: Optional[str] = None):
 @router.get("/admin/reports/logs", response_model=List[ReportLog], dependencies=[Depends(require_role("admin"))])
 async def admin_report_logs():
     return await db.report_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+
+# ---------- sponsor ranking (sport season: 1 Sep → 31 Aug) ----------
+def current_season_start() -> int:
+    now = datetime.now(ROME)
+    return now.year if now.month >= 9 else now.year - 1
+
+
+@router.get("/admin/rankings", response_model=Ranking, dependencies=[Depends(require_role("admin"))])
+async def sponsor_ranking(season: Optional[int] = None):
+    cur = current_season_start()
+    y = season or cur
+    if y < 2000 or y > cur:
+        raise HTTPException(status_code=400, detail="Stagione non valida")
+    start = datetime(y, 9, 1, tzinfo=ROME).astimezone(timezone.utc)
+    end = datetime(y + 1, 9, 1, tzinfo=ROME).astimezone(timezone.utc)
+    agg = db.transactions.aggregate([
+        {"$match": {"created_at": {"$gte": start, "$lt": end}}},
+        {"$group": {"_id": "$merchant_id", "name": {"$last": "$merchant_name"}, "count": {"$sum": 1},
+                    "amount": {"$sum": "$amount"}, "discount": {"$sum": "$discount_amount"},
+                    "athletes": {"$addToSet": "$athlete_id"}}},
+        {"$sort": {"discount": -1}},
+    ])
+    rows = []
+    async for g in agg:
+        m = await db.merchants.find_one({"id": g["_id"]}, {"_id": 0, "business_name": 1, "logo": 1, "sector": 1}) or {}
+        rows.append(RankingRow(
+            rank=len(rows) + 1, merchant_id=g["_id"], merchant_name=m.get("business_name") or g["name"],
+            logo=m.get("logo"), sector=m.get("sector", ""), count=g["count"], amount=round(g["amount"], 2),
+            discount=round(g["discount"], 2), athletes=len(g["athletes"]),
+        ))
+    return Ranking(start_year=y, current_start_year=cur, label=f"{y}/{y + 1}",
+                   total_discount=round(sum(r.discount for r in rows), 2), rows=rows)

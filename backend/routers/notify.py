@@ -1,6 +1,7 @@
 """Merchant invitations (set-password link) and 'new partner' announcements to athletes."""
 
 import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -8,12 +9,12 @@ from datetime import timedelta
 from html import escape
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from lib.auth import require_role
 from lib.db import db
 from lib.email import EmailError, send_email
-from models.schemas import InviteResult, now_utc
+from models.schemas import DigestResult, InviteResult, Merchant, now_utc
 
 router = APIRouter(tags=["notify"])
 logger = logging.getLogger(__name__)
@@ -131,3 +132,69 @@ async def announce_merchant(merchant_id: str, base: Optional[str]) -> None:
         except (EmailError, ValueError) as e:
             logger.warning("announce to %s failed: %s", u["email"], e)
     logger.info("announced merchant %s to %s athletes", m["business_name"], sent)
+
+
+# ---------- monthly promo digest for athletes ----------
+async def send_promo_digest(base: Optional[str]) -> DigestResult:
+    promos = [m for m in (Merchant(**d) for d in await db.merchants.find({"published": {"$ne": False}}, {"_id": 0}).to_list(1000))
+              if m.promo_active]
+    if not promos:
+        logger.info("promo digest: no active promotions, nothing sent")
+        return DigestResult(promos=0, sent=0)
+    assoc_name = await _assoc_name()
+    items = "".join(
+        f'<tr><td style="padding:12px;border-bottom:1px solid #e2e8f0">'
+        f'<div style="font-size:12px;color:#475569">{escape(m.business_name)} · -{escape(f"{m.discount_percent:g}".replace(".", ","))}%</div>'
+        f'<div style="font-size:16px;font-weight:bold;margin-top:2px">{escape(m.promo_title)}</div>'
+        f'{"<div style=" + chr(34) + "font-size:13px;color:#334155;margin-top:2px" + chr(34) + ">" + escape(m.promo_description) + "</div>" if m.promo_description else ""}'
+        f'{"<div style=" + chr(34) + "font-size:11px;color:#854d0e;margin-top:4px" + chr(34) + ">Fino al " + escape("/".join(reversed(m.promo_end.split("-")))) + "</div>" if m.promo_end else ""}'
+        f"</td></tr>"
+        for m in promos
+    )
+    button = _button(base + "/atleta", "Apri la tessera") if base else ""
+    inner = (
+        "<p>Ecco le <strong>promozioni del mese</strong> dei partner della convenzione sponsor:</p>"
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border-radius:8px">{items}</table>'
+        f"<p>Ricorda di mostrare la tessera digitale prima di pagare.</p>{button}"
+        '<p style="font-size:12px;color:#64748b">Non vuoi più questi avvisi? Disattivali dal tuo profilo nell\'app.</p>'
+    )
+    html = _frame(assoc_name, inner)
+    user_ids = [a["user_id"] async for a in db.athletes.find({"notify_new_partners": {"$ne": False}}, {"user_id": 1})]
+    sent = 0
+    async for u in db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "email": 1}):
+        if is_demo(u["email"]):
+            continue
+        try:
+            await send_email(to=[u["email"]], subject=f"Le promozioni del mese – {assoc_name}", html=html)
+            sent += 1
+        except (EmailError, ValueError) as e:
+            logger.warning("digest to %s failed: %s", u["email"], e)
+    logger.info("promo digest: %s promos sent to %s athletes", len(promos), sent)
+    return DigestResult(promos=len(promos), sent=sent)
+
+
+@router.post("/cron/promo-digest")
+async def cron_promo_digest(request: Request, background: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    if not secret or not token or not hmac.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    try:
+        envelope = await request.json()
+    except Exception:
+        envelope = None
+    if envelope is not None and not isinstance(envelope, dict):
+        raise HTTPException(status_code=400, detail="invalid body")
+    run_id = request.headers.get("x-webhook-id") or (envelope or {}).get("run_id") or now_utc().isoformat()
+    if await db.cron_runs.find_one({"run_id": run_id}):
+        return {"accepted": True, "duplicate": True}
+    await db.cron_runs.insert_one({"run_id": run_id, "job": "promo-digest", "created_at": now_utc()})
+    background.add_task(send_promo_digest, public_base(request))
+    return {"accepted": True}
+
+
+@router.post("/admin/promo-digest/send", response_model=DigestResult, dependencies=[Depends(require_role("admin"))])
+async def admin_send_digest(request: Request):
+    return await send_promo_digest(public_base(request))

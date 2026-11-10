@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
@@ -8,6 +8,7 @@ from lib.dates import today_iso
 
 Role = Literal["athlete", "merchant", "admin"]
 IMG_MAX = 2_000_000  # data-url length cap (~1.5MB image)
+GALLERY_MAX = 6
 DATE_RX = r"^(\d{4}-\d{2}-\d{2})?$"
 
 
@@ -69,6 +70,7 @@ class FamilyMemberIn(BaseModel):
     first_name: str = Field(min_length=1, max_length=60)
     last_name: str = Field(min_length=1, max_length=60)
     relation: str = Field(default="", max_length=40)
+    photo: Optional[str] = Field(default=None, max_length=IMG_MAX)
 
 
 class FamilyMember(FamilyMemberIn):
@@ -109,6 +111,7 @@ class MerchantUpdate(BaseModel):
     promo_description: str = Field(default="", max_length=400)
     promo_start: str = Field(default="", pattern=DATE_RX)
     promo_end: str = Field(default="", pattern=DATE_RX)
+    gallery: list[Annotated[str, Field(max_length=IMG_MAX)]] = Field(default_factory=list, max_length=GALLERY_MAX)
 
     @model_validator(mode="after")
     def _promo_dates(self):
@@ -235,6 +238,31 @@ class ReportLog(BaseModel):
     status: str  # sent | skipped | failed
     detail: str = ""
     created_at: datetime = Field(default_factory=now_utc)
+
+
+class RankingRow(BaseModel):
+    rank: int
+    merchant_id: str
+    merchant_name: str
+    logo: Optional[str] = None
+    sector: str = ""
+    count: int
+    amount: float
+    discount: float
+    athletes: int
+
+
+class Ranking(BaseModel):
+    start_year: int
+    current_start_year: int
+    label: str  # e.g. "2026/2027"
+    total_discount: float
+    rows: list[RankingRow]
+
+
+class DigestResult(BaseModel):
+    promos: int
+    sent: int
 
 
 class SendReportResult(BaseModel):

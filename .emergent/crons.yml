@@ -7,3 +7,11 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/monthly-report"
     method: POST
     enabled: true
+  - name: monthly-promo-digest
+    description: "Invia agli atleti iscritti agli avvisi il riepilogo delle promozioni attive, il 1° alle 9:00"
+    cron: "0 9 1 * *"
+    timezone: "Europe/Rome"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/promo-digest"
+    method: POST
+    enabled: true

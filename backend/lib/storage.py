@@ -94,6 +94,20 @@ async def save_image(value: Optional[str], *, kind: str, owner_user_id: Optional
         new = f"{FILE_REF}{fid}"
     elif value and not (value.startswith(FILE_REF) or value.startswith("https://")):
         raise HTTPException(status_code=400, detail="Immagine non valida")
-    if old and old != new and old.startswith(FILE_REF):
-        await db.files.update_one({"id": old[len(FILE_REF):]}, {"$set": {"is_deleted": True, "deleted_at": now_utc()}})
+    if old and old != new:
+        await discard(old)
     return new
+
+
+async def discard(ref: Optional[str]) -> None:
+    """Soft-delete a stored file (storage has no delete API)."""
+    if ref and ref.startswith(FILE_REF):
+        await db.files.update_one({"id": ref[len(FILE_REF):]}, {"$set": {"is_deleted": True, "deleted_at": now_utc()}})
+
+
+async def save_gallery(items: list[str], *, owner_user_id: str, old: Optional[list[str]] = None) -> list[str]:
+    out = [await save_image(v, kind="gallery", owner_user_id=owner_user_id, public=True) for v in items if v]
+    for ref in old or []:
+        if ref not in out:
+            await discard(ref)
+    return [r for r in out if r]

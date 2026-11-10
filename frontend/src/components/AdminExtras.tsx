@@ -14,7 +14,7 @@ import { apiGet, apiPost, apiPut } from "@/lib/api";
 import { dateTime, EMPTY_MERCHANT, errMsg, eur, initials, pct } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
 import { useAssociation } from "@/lib/session";
-import type { AdminMerchant, AdminMerchantSave, InviteResult, MonthlyReport, ReportLog, SendReportResult, Transaction } from "@/lib/types";
+import type { AdminMerchant, AdminMerchantSave, DigestResult, InviteResult, MonthlyReport, ReportLog, SendReportResult, Transaction } from "@/lib/types";
 
 const ADMIN_MERCHANTS = ["admin-merchants"];
 
@@ -225,6 +225,12 @@ export function ReportsTab() {
   });
   const rows = report.isError ? [] : (report.data?.rows ?? []);
   const labels = Object.fromEntries(months.map((m) => [m.value, m.label]));
+  const digest = useMutation({
+    mutationFn: () => apiPost<DigestResult>("/admin/promo-digest/send"),
+    onSuccess: (r) =>
+      r.promos === 0 ? toast.info("Nessuna promozione attiva: riepilogo non inviato") : toast.success(`${r.promos} promozioni inviate a ${r.sent} atleti`),
+    onError: (e) => toast.error(errMsg(e)),
+  });
 
   return (
     <div className="space-y-6">
@@ -236,6 +242,22 @@ export function ReportsTab() {
           Ogni commerciante con almeno una vendita riceve il riepilogo del mese precedente all'email di accesso, in copia a{" "}
           <strong data-testid="report-cc-email">{assoc?.email || "— (imposta l'email nella scheda Associazione)"}</strong>. Gli indirizzi dimostrativi @example.it vengono saltati.
         </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/40 bg-gold-soft p-4 text-sm">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gold-ink">Riepilogo promozioni per gli atleti · il 1° del mese alle 9:00</p>
+          <p className="text-muted-foreground">Parte solo se ci sono promozioni attive; esclusi gli atleti che hanno disattivato gli avvisi.</p>
+        </div>
+        <Button
+          variant="outline"
+          disabled={digest.isPending}
+          onClick={() => {
+            if (window.confirm("Inviare ora il riepilogo delle promozioni attive agli atleti?")) digest.mutate();
+          }}
+          data-testid="digest-send-button"
+        >
+          {digest.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Invia riepilogo ora
+        </Button>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Select value={month} onValueChange={(v: string) => setMonth(v)}>

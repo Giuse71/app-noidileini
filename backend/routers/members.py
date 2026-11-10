@@ -9,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from lib.auth import hash_password, require_role
 from lib.db import db
-from lib.storage import save_image
+from lib.storage import discard, save_gallery, save_image
 from models.schemas import (
     AdminMerchant,
     AdminMerchantSave,
@@ -86,7 +86,7 @@ async def athlete_by_code(code: str, _: dict = Depends(require_role("merchant", 
     if not fam or not holder:
         raise HTTPException(status_code=404, detail="Nessun atleta con questo codice")
     return Athlete(
-        **{**holder, "first_name": fam["first_name"], "last_name": fam["last_name"], "photo": None, "code": fam["code"]},
+        **{**holder, "first_name": fam["first_name"], "last_name": fam["last_name"], "photo": fam.get("photo"), "code": fam["code"]},
         is_family=True, family_member_id=fam["id"], relation=fam.get("relation", ""),
         holder_name=f'{holder["first_name"]} {holder["last_name"]}',
     )
@@ -109,20 +109,36 @@ async def my_family(user: dict = Depends(require_role("athlete"))):
 @router.post("/athletes/me/family", response_model=FamilyMember)
 async def add_family(body: FamilyMemberIn, user: dict = Depends(require_role("athlete"))):
     aid = await _my_athlete_id(user)
+    photo = await save_image(body.photo, kind="family", owner_user_id=user["id"], public=False)
     fm = FamilyMember(
-        id=new_id(), code=await new_athlete_code(), created_at=now_utc(),
+        id=new_id(), code=await new_athlete_code(), created_at=now_utc(), photo=photo,
         first_name=body.first_name.strip(), last_name=body.last_name.strip(), relation=body.relation.strip(),
     )
     await db.family_members.insert_one({**fm.model_dump(), "athlete_id": aid})
     return fm
 
 
+@router.put("/athletes/me/family/{id}", response_model=FamilyMember)
+async def update_family(id: str, body: FamilyMemberIn, user: dict = Depends(require_role("athlete"))):
+    aid = await _my_athlete_id(user)
+    current = await db.family_members.find_one({"id": id, "athlete_id": aid}, {"_id": 0})
+    if not current:
+        raise HTTPException(status_code=404, detail="Familiare non trovato")
+    photo = await save_image(body.photo, kind="family", owner_user_id=user["id"], public=False, old=current.get("photo"))
+    update = {"first_name": body.first_name.strip(), "last_name": body.last_name.strip(),
+              "relation": body.relation.strip(), "photo": photo}
+    doc = await db.family_members.find_one_and_update({"id": id, "athlete_id": aid}, {"$set": update},
+                                                      projection={"_id": 0}, return_document=True)
+    return FamilyMember(**doc)
+
+
 @router.delete("/athletes/me/family/{id}")
 async def remove_family(id: str, user: dict = Depends(require_role("athlete"))):
     aid = await _my_athlete_id(user)
-    res = await db.family_members.delete_one({"id": id, "athlete_id": aid})
-    if res.deleted_count == 0:
+    doc = await db.family_members.find_one_and_delete({"id": id, "athlete_id": aid})
+    if not doc:
         raise HTTPException(status_code=404, detail="Familiare non trovato")
+    await discard(doc.get("photo"))
     return {"ok": True}
 
 
@@ -156,7 +172,8 @@ async def admin_create_merchant(body: AdminMerchantSave, request: Request, backg
     await db.users.insert_one({"id": uid, "email": email, "password_hash": hash_password(password),
                                "role": "merchant", "created_at": now_utc()})
     logo = await save_image(body.logo, kind="merchants", owner_user_id=uid, public=True)
-    doc = {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "published": body.published,
+    gallery = await save_gallery(body.gallery, owner_user_id=uid)
+    doc = {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery, "published": body.published,
            "id": new_id(), "user_id": uid, "created_at": now_utc()}
     await db.merchants.insert_one(dict(doc))
     if body.published:
@@ -178,7 +195,8 @@ async def admin_update_merchant(id: str, body: AdminMerchantSave, request: Reque
         user_set["password_hash"] = hash_password(body.new_password)
     await db.users.update_one({"id": doc["user_id"]}, {"$set": user_set})
     logo = await save_image(body.logo, kind="merchants", owner_user_id=doc["user_id"], public=True, old=doc.get("logo"))
-    update = {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "published": body.published}
+    gallery = await save_gallery(body.gallery, owner_user_id=doc["user_id"], old=doc.get("gallery"))
+    update = {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery, "published": body.published}
     doc = await db.merchants.find_one_and_update({"id": id}, {"$set": update}, projection={"_id": 0}, return_document=True)
     if body.published and not doc.get("announced_at"):
         background.add_task(announce_merchant, id, public_base(request))
@@ -195,10 +213,11 @@ async def my_merchant(user: dict = Depends(require_role("merchant"))):
 
 @router.put("/merchants/me", response_model=Merchant)
 async def update_my_merchant(body: MerchantUpdate, user: dict = Depends(require_role("merchant"))):
-    current = await db.merchants.find_one({"user_id": user["id"]}, {"logo": 1}) or {}
+    current = await db.merchants.find_one({"user_id": user["id"]}, {"logo": 1, "gallery": 1}) or {}
     logo = await save_image(body.logo, kind="merchants", owner_user_id=user["id"], public=True, old=current.get("logo"))
+    gallery = await save_gallery(body.gallery, owner_user_id=user["id"], old=current.get("gallery"))
     doc = await db.merchants.find_one_and_update(
-        {"user_id": user["id"]}, {"$set": {**body.model_dump(), "logo": logo}}, projection={"_id": 0}, return_document=True
+        {"user_id": user["id"]}, {"$set": {**body.model_dump(), "logo": logo, "gallery": gallery}}, projection={"_id": 0}, return_document=True
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Profilo non trovato")

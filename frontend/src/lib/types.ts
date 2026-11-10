@@ -56,6 +56,7 @@ export interface FamilyMemberIn {
   first_name: string;
   last_name: string;
   relation: string;
+  photo: string | null;
 }
 
 export interface FamilyMember extends FamilyMemberIn {
@@ -81,6 +82,7 @@ export interface MerchantUpdate {
   promo_description: string;
   promo_start: string;
   promo_end: string;
+  gallery: string[];
 }
 
 export interface Merchant extends MerchantUpdate {
@@ -143,6 +145,31 @@ export interface ReportLog {
   status: "sent" | "skipped" | "failed";
   detail: string;
   created_at: string;
+}
+
+export interface RankingRow {
+  rank: number;
+  merchant_id: string;
+  merchant_name: string;
+  logo: string | null;
+  sector: string;
+  count: number;
+  amount: number;
+  discount: number;
+  athletes: number;
+}
+
+export interface Ranking {
+  start_year: number;
+  current_start_year: number;
+  label: string;
+  total_discount: number;
+  rows: RankingRow[];
+}
+
+export interface DigestResult {
+  promos: number;
+  sent: number;
 }
 
 export interface SendReportResult {
