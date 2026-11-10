@@ -17,12 +17,18 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 from lib.db import client, db, ensure_indexes
+from lib.storage import init_storage
 
 
 # Startup runs before the yield, shutdown after it. Add your own setup/teardown here.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.index_task = asyncio.create_task(ensure_indexes())  # background: a big index build must not block boot
+    try:
+        await asyncio.to_thread(init_storage)
+        logging.getLogger(__name__).info("Storage initialized")
+    except Exception as e:  # noqa: BLE001 - first upload retries init
+        logging.getLogger(__name__).error("Storage init failed: %s", e)
     yield
     app.state.index_task.cancel()  # stop a build still running before its client closes
     with suppress(asyncio.CancelledError):
@@ -63,9 +69,9 @@ async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
-from routers import auth as auth_router, club, members, transactions  # noqa: E402
+from routers import auth as auth_router, club, files, members, notify, reports, transactions  # noqa: E402
 
-for _r in (auth_router.router, club.router, members.router, transactions.router):
+for _r in (auth_router.router, club.router, members.router, transactions.router, reports.router, notify.router, files.router):
     api_router.include_router(_r)
 
 # Include the router in the main app

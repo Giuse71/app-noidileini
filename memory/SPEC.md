@@ -21,3 +21,16 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 
 ## Seed (python seed.py, idempotent)
 8 categories, 8 athletes (e.g. Giulia Rossi LV-GR1606 Under 16), 6 merchants (Pizzeria Da Gianni 15%, ...), 14 transactions. Credentials in test_credentials.md.
+
+## v2 additions
+- **Familiari collegati** (/atleta/famiglia): athlete adds unlimited family members {first_name,last_name,relation}; each gets own code LV-XXXXXX + QR (collection family_members{id,athlete_id,code,...}). GET/POST /athletes/me/family, DELETE /athletes/me/family/{id} (owner only, else 404). /athletes/by-code resolves family codes (is_family=true, family_member_id, holder_name, relation). POST /transactions accepts family_member_id → tx.family_member_name/relation, athlete_id = holder.
+- **Tessera sul telefono**: PWA (public/manifest.webmanifest, public/sw.js network-first + offline fallback, icons icon-192/512). InstallCard on /atleta (native prompt on Android, instructions dialog on iOS). Logout clears "lv-cache".
+- **15 spazi commercianti**: seed adds placeholders "Spazio partner 07..15" (partnerNN@leinivolley.it / Negozio2026!, published=false, hidden from public /merchants). Admin tab Commercianti: edit any merchant (logo, data, discount, account email, new password, visible toggle) via GET/POST /admin/merchants, PUT /admin/merchants/{id}. Merchants then log in and edit their own data.
+- **Report mensile**: .emergent/crons.yml "0 8 1 * *" Europe/Rome → POST /api/cron/monthly-report (Bearer WEBHOOK_CRON_SECRET, idempotent by run_id in cron_runs, background). Emails each merchant with transactions in previous month (to merchant login email + association email as CC recipient) via Emergent managed Resend (lib/email.py). @example.* addresses skipped. Admin tab "Report mensili": GET /admin/reports/monthly?month=YYYY-MM, POST /admin/reports/monthly/send?month= (force resend), GET /admin/reports/logs.
+- Association email is blank until the admin sets the real one.
+
+## v3 additions
+- **Invito commercianti**: admin "Invia invito" (POST /admin/merchants/{id}/invite) emails the merchant login email a 7-day set-password link `{origin}/imposta-password?token=…` (password_tokens, sha256-hashed, single use). Public: GET /auth/password-token/{token}, POST /auth/set-password (logs in). Demo @example.* emails rejected (400). Admin can add unlimited merchants; password optional on create.
+- **Promozione del mese**: MerchantUpdate promo_title/promo_description/promo_start/promo_end (YYYY-MM-DD); Merchant.promo_active computed server-side (Europe/Rome today). Shown highlighted on athlete tessera + merchant cards. end<start → 422.
+- **Avviso nuovi partner**: first time a merchant is visible (self-registration, admin create/publish) → background email to athletes with notify_new_partners != false (toggle in athlete profile); idempotent via merchants.announced_at. Pre-existing partners marked announced in seed.
+- **Object storage (Emergent)**: lib/storage.py. Clients still send data-URL images; backend uploads them (athlete photo private, logos public) and stores `/api/files/{id}` refs (files collection, soft delete on replace). GET /api/files/{id}: logos public; athlete photos only owner/merchant/admin (cookie auth). migrate_images.py moves legacy data URLs.

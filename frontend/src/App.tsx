@@ -3,9 +3,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { AdminLayout, AthleteLayout, MerchantLayout } from "@/components/Layouts";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import SetPassword from "@/pages/SetPassword";
 import AthleteCard from "@/pages/AthleteCard";
 import AthleteConvenzioni from "@/pages/AthleteConvenzioni";
 import AthleteMovements from "@/pages/AthleteMovements";
+import AthleteFamily from "@/pages/AthleteFamily";
 import AthleteProfile from "@/pages/AthleteProfile";
 import MerchantCassa from "@/pages/MerchantCassa";
 import MerchantHistory from "@/pages/MerchantHistory";
@@ -19,9 +21,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/imposta-password" element={<SetPassword />} />
         <Route path="/atleta" element={<AthleteLayout />}>
           <Route index element={<AthleteCard />} />
           <Route path="convenzioni" element={<AthleteConvenzioni />} />
+          <Route path="famiglia" element={<AthleteFamily />} />
           <Route path="movimenti" element={<AthleteMovements />} />
           <Route path="profilo" element={<AthleteProfile />} />
         </Route>

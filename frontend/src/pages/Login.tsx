@@ -42,7 +42,7 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ath, setAth] = useState<AthleteRegister>({ email: "", password: "", first_name: "", last_name: "", category_id: "", photo: null });
+  const [ath, setAth] = useState<AthleteRegister>({ email: "", password: "", first_name: "", last_name: "", category_id: "", photo: null, notify_new_partners: true });
   const [mer, setMer] = useState<MerchantRegister>({ ...EMPTY_MERCHANT, account_email: "", password: "" });
 
   const onSuccess = (data: Me) => {

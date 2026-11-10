@@ -41,11 +41,22 @@ export default function TransactionsTable({
               <TableCell className="tnum whitespace-nowrap text-muted-foreground">{dateTime(t.created_at)}</TableCell>
               {showAthlete && (
                 <TableCell>
-                  <p className="font-medium">{t.athlete_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t.athlete_code}
-                    {t.category_name && ` · ${t.category_name}`}
-                  </p>
+                  {t.family_member_name ? (
+                    <>
+                      <p className="font-medium">{t.family_member_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.relation || "Familiare"} di {t.athlete_name} · {t.athlete_code}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">{t.athlete_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t.athlete_code}
+                        {t.category_name && ` · ${t.category_name}`}
+                      </p>
+                    </>
+                  )}
                 </TableCell>
               )}
               {showMerchant && <TableCell className="font-medium">{t.merchant_name}</TableCell>}

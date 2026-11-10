@@ -12,8 +12,9 @@ import ImageUpload from "@/components/ImageUpload";
 import { Field } from "@/components/ProfileFields";
 import StatCard from "@/components/StatCard";
 import TransactionsTable from "@/components/TransactionsTable";
+import { AdminMerchantsTab, ReportsTab } from "@/components/AdminExtras";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import { dateTime, errMsg, eur, initials, pct, totals } from "@/lib/format";
+import { dateTime, errMsg, eur, initials, totals } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
 import { useAssociation, useCategories, useMerchants } from "@/lib/session";
 import type { Association, Athlete, Category, Transaction } from "@/lib/types";
@@ -149,6 +150,7 @@ function AthletesTab() {
               <TableHead>Atleta</TableHead>
               <TableHead>Categoria</TableHead>
               <TableHead>Codice</TableHead>
+              <TableHead className="text-right">Familiari</TableHead>
               <TableHead>Iscritto il</TableHead>
             </TableRow>
           </TableHeader>
@@ -167,6 +169,7 @@ function AthletesTab() {
                 </TableCell>
                 <TableCell>{a.category_name || "—"}</TableCell>
                 <TableCell className="tnum font-mono text-xs">{a.code}</TableCell>
+                <TableCell className="tnum text-right" data-testid={`admin-athlete-family-${a.code}`}>{a.family_count}</TableCell>
                 <TableCell className="tnum text-muted-foreground">{dateTime(a.created_at).slice(0, 10)}</TableCell>
               </TableRow>
             ))}
@@ -177,55 +180,9 @@ function AthletesTab() {
   );
 }
 
-function MerchantsTab() {
-  const { data: merchants = [] } = useMerchants();
+function AdminMerchantsTabWrapper() {
   const tx = useAllTransactions();
-  const counts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of tx.data ?? []) m.set(r.merchant_id, (m.get(r.merchant_id) ?? 0) + 1);
-    return m;
-  }, [tx.data]);
-  return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/70">
-            <TableHead>Attività</TableHead>
-            <TableHead>P.IVA</TableHead>
-            <TableHead>Contatti</TableHead>
-            <TableHead className="text-right">Sconto</TableHead>
-            <TableHead className="text-right">Transazioni</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {merchants.map((m) => (
-            <TableRow key={m.id} data-testid={`admin-merchant-row-${m.id}`}>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg border bg-accent text-xs font-bold text-primary">
-                    {m.logo ? <img src={m.logo} alt="" className="size-full bg-white object-contain" /> : initials(...m.business_name.split(" "))}
-                  </div>
-                  <div>
-                    <p className="font-medium">{m.business_name}</p>
-                    <p className="text-xs text-muted-foreground">{[m.legal_name, m.sector].filter(Boolean).join(" · ")}</p>
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="tnum font-mono text-xs">{m.vat_number}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                <p>{[m.address, m.city].filter(Boolean).join(", ")}</p>
-                <p>{[m.phone, m.email].filter(Boolean).join(" · ")}</p>
-              </TableCell>
-              <TableCell className="text-right">
-                <span className="rounded-full bg-gold-soft px-2 py-0.5 text-xs font-semibold text-gold-ink">-{pct(m.discount_percent)}</span>
-              </TableCell>
-              <TableCell className="tnum text-right">{counts.get(m.id) ?? 0}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+  return <AdminMerchantsTab transactions={tx.isError ? [] : (tx.data ?? [])} />;
 }
 
 function CategoriesTab() {
@@ -349,14 +306,16 @@ export default function Admin() {
             <TabsTrigger value="athletes" data-testid="admin-tab-athletes"><Users className="size-4" /> Atleti</TabsTrigger>
             <TabsTrigger value="merchants" data-testid="admin-tab-merchants"><Store className="size-4" /> Commercianti</TabsTrigger>
             <TabsTrigger value="categories" data-testid="admin-tab-categories">Categorie</TabsTrigger>
+            <TabsTrigger value="reports" data-testid="admin-tab-reports">Report mensili</TabsTrigger>
             <TabsTrigger value="association" data-testid="admin-tab-association">Associazione</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
         <TabsContent value="transactions" className="mt-6"><TransactionsReport /></TabsContent>
         <TabsContent value="athletes" className="mt-6"><AthletesTab /></TabsContent>
-        <TabsContent value="merchants" className="mt-6"><MerchantsTab /></TabsContent>
+        <TabsContent value="merchants" className="mt-6"><AdminMerchantsTabWrapper /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
+        <TabsContent value="reports" className="mt-6"><ReportsTab /></TabsContent>
         <TabsContent value="association" className="mt-6">
           {assoc.isLoading ? (
             <div className="h-64 animate-pulse rounded-xl bg-muted" />

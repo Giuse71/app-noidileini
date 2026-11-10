@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AthleteFields } from "@/components/ProfileFields";
 import { apiPut } from "@/lib/api";
 import { errMsg } from "@/lib/format";
@@ -16,6 +17,7 @@ function ProfileForm({ athlete }: { athlete: Athlete }) {
     last_name: athlete.last_name,
     category_id: athlete.category_id ?? "",
     photo: athlete.photo,
+    notify_new_partners: athlete.notify_new_partners,
   });
   const save = useMutation({
     mutationFn: (b: AthleteUpdate) => apiPut<Athlete>("/athletes/me", b),
@@ -38,6 +40,17 @@ function ProfileForm({ athlete }: { athlete: Athlete }) {
   return (
     <form onSubmit={submit} className="space-y-5 rounded-xl border bg-card p-5">
       <AthleteFields value={form} onChange={setForm} />
+      <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+        <Checkbox
+          checked={form.notify_new_partners}
+          onCheckedChange={(v) => setForm({ ...form, notify_new_partners: v === true })}
+          data-testid="athlete-notify-checkbox"
+        />
+        <span>
+          <span className="font-medium">Avvisami via email dei nuovi partner</span>
+          <span className="block text-xs text-muted-foreground">Ricevi un messaggio quando un nuovo commerciante entra nella convenzione</span>
+        </span>
+      </label>
       <div className="rounded-lg bg-muted p-3 text-sm">
         <span className="text-muted-foreground">Email di accesso: </span>
         <span className="font-medium" data-testid="athlete-profile-email">{athlete.email}</span>

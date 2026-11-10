@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import require_role
 from lib.db import db
+from lib.storage import save_image
 from models.schemas import Association, Category, CategoryIn
 
 router = APIRouter(tags=["club"])
@@ -20,6 +21,8 @@ async def get_association():
 
 @router.put("/association", response_model=Association, dependencies=[Depends(admin_only)])
 async def update_association(body: Association):
+    current = await db.association.find_one({"id": "main"}, {"logo": 1}) or {}
+    body.logo = await save_image(body.logo, kind="association", owner_user_id=None, public=True, old=current.get("logo"))
     await db.association.update_one({"id": "main"}, {"$set": body.model_dump()}, upsert=True)
     return body
 

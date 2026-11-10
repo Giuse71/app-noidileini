@@ -151,7 +151,7 @@ export default function MerchantCassa() {
               <CheckCircle2 className="size-5" /> Transazione registrata
             </div>
             <p className="mt-1 text-sm text-emerald-900">
-              {last.athlete_name} · {eur(last.amount)} − {eur(last.discount_amount)} = <strong data-testid="last-transaction-final">{eur(last.final_amount)}</strong>
+              {last.family_member_name || last.athlete_name} · {eur(last.amount)} − {eur(last.discount_amount)} = <strong data-testid="last-transaction-final">{eur(last.final_amount)}</strong>
             </p>
           </div>
         )}
@@ -164,9 +164,16 @@ export default function MerchantCassa() {
                 <p className="truncate font-semibold" data-testid="selected-athlete-name">
                   {athlete.first_name} {athlete.last_name}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {athlete.category_name || "—"} · <span className="font-mono">{athlete.code}</span>
-                </p>
+                {athlete.is_family ? (
+                  <p className="text-xs text-muted-foreground" data-testid="selected-athlete-family">
+                    <span className="mr-1 rounded-full bg-gold-soft px-1.5 py-0.5 font-semibold text-gold-ink">Familiare</span>
+                    {athlete.relation || "Familiare"} di {athlete.holder_name} · <span className="font-mono">{athlete.code}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {athlete.category_name || "—"} · <span className="font-mono">{athlete.code}</span>
+                  </p>
+                )}
               </div>
               <Button variant="ghost" size="icon-sm" onClick={() => setAthlete(null)} data-testid="selected-athlete-clear">
                 <X className="size-4" />
@@ -184,7 +191,7 @@ export default function MerchantCassa() {
               e.preventDefault();
               if (!athlete) return toast.error("Seleziona prima un atleta");
               if (amount <= 0) return toast.error("Inserisci un importo valido");
-              register.mutate({ athlete_id: athlete.id, amount, note });
+              register.mutate({ athlete_id: athlete.id, amount, note, family_member_id: athlete.is_family ? athlete.family_member_id : null });
             }}
           >
             <Field label="Importo speso (€)" htmlFor="amount">

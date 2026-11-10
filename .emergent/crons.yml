@@ -1,0 +1,9 @@
+crons:
+  - name: monthly-sponsor-report
+    description: "Invia a ogni commerciante (in copia all'associazione) il report del mese precedente, il 1° alle 8:00"
+    cron: "0 8 1 * *"
+    timezone: "Europe/Rome"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/monthly-report"
+    method: POST
+    enabled: true

@@ -23,6 +23,7 @@ export function beginSession(me: Me) {
 /** Every sign-out goes through here. */
 export async function endSession() {
   await apiPost("/auth/logout").catch(() => undefined);
+  if ("caches" in window) await caches.delete("lv-cache").catch(() => undefined);
   queryClient.clear();
   queryClient.setQueryData(ME_KEY, null);
 }

@@ -17,13 +17,20 @@ async def create_transaction(body: TransactionCreate, user: dict = Depends(requi
     athlete = await db.athletes.find_one({"id": body.athlete_id}, {"_id": 0})
     if not athlete:
         raise HTTPException(status_code=404, detail="Atleta non trovato")
+    code, fam_name, relation = athlete["code"], "", ""
+    if body.family_member_id:
+        fam = await db.family_members.find_one({"id": body.family_member_id, "athlete_id": athlete["id"]}, {"_id": 0})
+        if not fam:
+            raise HTTPException(status_code=404, detail="Familiare non trovato")
+        code, fam_name, relation = fam["code"], f'{fam["first_name"]} {fam["last_name"]}', fam.get("relation", "")
     amount = round(body.amount, 2)
     pct = float(merchant.get("discount_percent", 0))
     discount = round(amount * pct / 100, 2)
     tx = Transaction(
         merchant_id=merchant["id"], merchant_name=merchant["business_name"],
         athlete_id=athlete["id"], athlete_name=f'{athlete["first_name"]} {athlete["last_name"]}',
-        athlete_code=athlete["code"], category_name=athlete.get("category_name", ""),
+        athlete_code=code, category_name=athlete.get("category_name", ""),
+        family_member_name=fam_name, relation=relation,
         amount=amount, discount_percent=pct, discount_amount=discount,
         final_amount=round(amount - discount, 2), note=body.note.strip(),
     )

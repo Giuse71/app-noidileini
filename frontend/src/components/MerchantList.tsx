@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { MapPin, Phone, Search } from "lucide-react";
+import { MapPin, Phone, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { initials, pct } from "@/lib/format";
 import { useMerchants } from "@/lib/session";
@@ -25,6 +25,14 @@ function MerchantCard({ m }: { m: Merchant }) {
             -{pct(m.discount_percent)}
           </span>
         </div>
+        {m.promo_active && (
+          <div className="mt-2 rounded-lg border border-gold/50 bg-gold-soft px-2.5 py-1.5 text-xs" data-testid={`merchant-promo-${m.id}`}>
+            <p className="flex items-center gap-1 font-semibold text-gold-ink">
+              <Sparkles className="size-3.5" /> {m.promo_title}
+            </p>
+            {m.promo_description && <p className="mt-0.5 text-muted-foreground">{m.promo_description}</p>}
+          </div>
+        )}
         {m.description && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>}
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {(m.address || m.city) && (

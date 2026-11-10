@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { CreditCard, History, Loader2, Receipt, ScanLine, Store, Tag, UserRound } from "lucide-react";
+import { CreditCard, History, Loader2, Receipt, ScanLine, Store, Tag, UserRound, Users } from "lucide-react";
 import AppShell, { type NavItem } from "@/components/AppShell";
 import { homeFor, useMe } from "@/lib/session";
 import type { Role } from "@/lib/types";
@@ -8,6 +8,7 @@ import type { Role } from "@/lib/types";
 const ATHLETE_NAV: NavItem[] = [
   { to: "/atleta", label: "Tessera", icon: CreditCard, testid: "tessera", end: true },
   { to: "/atleta/convenzioni", label: "Convenzioni", icon: Tag, testid: "convenzioni" },
+  { to: "/atleta/famiglia", label: "Famiglia", icon: Users, testid: "famiglia" },
   { to: "/atleta/movimenti", label: "Movimenti", icon: Receipt, testid: "movimenti" },
   { to: "/atleta/profilo", label: "Profilo", icon: UserRound, testid: "profilo" },
 ];

@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,7 +63,7 @@ export function AthleteFields({ value, onChange }: { value: AthleteUpdate; onCha
 
 export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onChange: (v: MerchantUpdate) => void }) {
   const set = <K extends keyof MerchantUpdate>(k: K, v: MerchantUpdate[K]) => onChange({ ...value, [k]: v });
-  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
+  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent" | "promo_description">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
     <Field label={label} htmlFor={`m-${k}`} hint={opts.hint}>
       <Input
         id={`m-${k}`}
@@ -104,6 +106,32 @@ export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onC
       <Field label="Descrizione dell'attività" htmlFor="m-description">
         <Textarea id="m-description" rows={3} value={value.description} onChange={(e) => set("description", e.target.value)} data-testid="merchant-description-input" />
       </Field>
+      <div className="space-y-4 rounded-xl border border-gold/40 bg-gold-soft/60 p-4" data-testid="merchant-promo-section">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-gold-ink" />
+          <p className="text-sm font-semibold text-gold-ink">Promozione del mese (facoltativa)</p>
+        </div>
+        <p className="-mt-2 text-xs text-muted-foreground">Gli atleti la vedono in evidenza sulla tessera nelle date indicate. Lo sconto in cassa resta quello della convenzione.</p>
+        {text("promo_title", "Titolo", { hint: "Es. Pizza + bibita a 10 € il martedì" })}
+        <Field label="Descrizione" htmlFor="m-promo-desc">
+          <Textarea id="m-promo-desc" rows={2} value={value.promo_description} onChange={(e) => set("promo_description", e.target.value)} data-testid="merchant-promo-description-input" />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {text("promo_start", "Valida dal", { type: "date" })}
+          {text("promo_end", "Valida fino al", { type: "date" })}
+        </div>
+        {(value.promo_title || value.promo_start || value.promo_end) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange({ ...value, promo_title: "", promo_description: "", promo_start: "", promo_end: "" })}
+            data-testid="merchant-promo-clear"
+          >
+            Rimuovi promozione
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -26,6 +26,7 @@ export interface AthleteUpdate {
   last_name: string;
   category_id: string;
   photo: string | null;
+  notify_new_partners: boolean;
 }
 
 export interface AthleteRegister extends AthleteUpdate {
@@ -43,6 +44,24 @@ export interface Athlete {
   code: string;
   email: string;
   created_at: string;
+  family_count: number;
+  is_family: boolean;
+  family_member_id: string | null;
+  holder_name: string;
+  relation: string;
+  notify_new_partners: boolean;
+}
+
+export interface FamilyMemberIn {
+  first_name: string;
+  last_name: string;
+  relation: string;
+}
+
+export interface FamilyMember extends FamilyMemberIn {
+  id: string;
+  code: string;
+  created_at: string;
 }
 
 export interface MerchantUpdate {
@@ -58,11 +77,79 @@ export interface MerchantUpdate {
   description: string;
   logo: string | null;
   discount_percent: number;
+  promo_title: string;
+  promo_description: string;
+  promo_start: string;
+  promo_end: string;
 }
 
 export interface Merchant extends MerchantUpdate {
   id: string;
   created_at: string;
+  published: boolean;
+  promo_active: boolean;
+}
+
+export interface AdminMerchant extends Merchant {
+  account_email: string;
+  invited_at: string | null;
+  announced_at: string | null;
+}
+
+export interface PasswordTokenInfo {
+  email: string;
+  business_name: string;
+}
+
+export interface SetPasswordIn {
+  token: string;
+  password: string;
+}
+
+export interface InviteResult {
+  sent_to: string;
+  invited_at: string;
+}
+
+export interface AdminMerchantSave extends MerchantUpdate {
+  account_email: string;
+  new_password: string | null;
+  published: boolean;
+}
+
+export interface MonthlyMerchantRow {
+  merchant_id: string;
+  merchant_name: string;
+  email: string;
+  count: number;
+  amount: number;
+  discount: number;
+  final: number;
+  athletes: number;
+}
+
+export interface MonthlyReport {
+  month: string;
+  label: string;
+  rows: MonthlyMerchantRow[];
+}
+
+export interface ReportLog {
+  id: string;
+  month: string;
+  merchant_id: string;
+  merchant_name: string;
+  recipients: string[];
+  status: "sent" | "skipped" | "failed";
+  detail: string;
+  created_at: string;
+}
+
+export interface SendReportResult {
+  month: string;
+  sent: number;
+  skipped: number;
+  failed: number;
 }
 
 export interface MerchantRegister extends MerchantUpdate {
@@ -86,6 +173,7 @@ export interface TransactionCreate {
   athlete_id: string;
   amount: number;
   note: string;
+  family_member_id: string | null;
 }
 
 export interface Transaction {
@@ -101,5 +189,7 @@ export interface Transaction {
   discount_amount: number;
   final_amount: number;
   note: string;
+  family_member_name: string;
+  relation: string;
   created_at: string;
 }

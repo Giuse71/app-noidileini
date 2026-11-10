@@ -54,7 +54,7 @@ async def main() -> None:
         await db.association.insert_one({
             "id": "main", "name": "A.S.D. Leinì Volley", "logo": LOGO,
             "address": "Palazzetto dello Sport, Via Volpiano", "city": "10040 Leinì (TO)",
-            "vat_number": "", "fiscal_code": "", "email": "info@leinivolley.it", "phone": "",
+            "vat_number": "", "fiscal_code": "", "phone": "",
             "website": "", "description": "Società di pallavolo di Leinì: settore giovanile, prime squadre e amatori.",
             "convention_rules": "Mostra la tua tessera digitale (QR) prima di pagare: il commerciante applica lo sconto della convenzione sponsor.",
         })
@@ -90,6 +90,19 @@ async def main() -> None:
                    "discount_percent": pct, "created_at": now_utc()}
             await db.merchants.insert_one(dict(doc))
         merchants.append(doc)
+
+    # Empty partner slots up to 15: hidden from athletes until the admin fills and publishes them.
+    for n in range(len(MERCHANTS) + 1, 16):
+        uid = await upsert_user(f"partner{n:02d}@leinivolley.it", "Negozio2026!", "merchant")
+        if not await db.merchants.find_one({"user_id": uid}):
+            await db.merchants.insert_one({
+                "id": new_id(), "user_id": uid, "business_name": f"Spazio partner {n:02d}", "legal_name": "",
+                "vat_number": "00000000000", "sector": "", "address": "", "city": "Leinì", "phone": "",
+                "email": "", "website": "", "description": "", "logo": None, "discount_percent": 10,
+                "published": False, "created_at": now_utc(),
+            })
+    # partners already visible before the announcement feature never trigger a mass email
+    await db.merchants.update_many({"published": {"$ne": False}, "announced_at": None}, {"$set": {"announced_at": now_utc()}})
 
     if await db.transactions.count_documents({}) == 0:
         rnd = random.Random(42)

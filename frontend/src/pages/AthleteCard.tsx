@@ -2,15 +2,16 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, Maximize2, PiggyBank, Receipt } from "lucide-react";
+import { ArrowRight, Maximize2, PiggyBank, Receipt, Sparkles, Users } from "lucide-react";
+import InstallCard from "@/components/InstallCard";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Crest from "@/components/Crest";
 import MerchantList from "@/components/MerchantList";
 import StatCard from "@/components/StatCard";
 import { apiGet } from "@/lib/api";
-import { eur, initials, totals } from "@/lib/format";
-import { useAssociation, useMe } from "@/lib/session";
+import { eur, initials, pct, totals } from "@/lib/format";
+import { useAssociation, useMe, useMerchants } from "@/lib/session";
 import type { Transaction } from "@/lib/types";
 
 export default function AthleteCard() {
@@ -18,6 +19,8 @@ export default function AthleteCard() {
   const { data: assoc } = useAssociation();
   const tx = useQuery({ queryKey: ["transactions", "mine"], queryFn: () => apiGet<Transaction[]>("/transactions/mine") });
   const [big, setBig] = useState(false);
+  const merchants = useMerchants();
+  const promos = (merchants.isError ? [] : (merchants.data ?? [])).filter((m) => m.promo_active);
   const a = me?.athlete;
   if (!a) return null;
   const t = totals(tx.isError ? [] : (tx.data ?? []));
@@ -67,13 +70,49 @@ export default function AthleteCard() {
             <Maximize2 className="ml-auto size-5 text-primary" />
           </button>
         </div>
+        <InstallCard />
+        <Link
+          to="/atleta/famiglia"
+          className="flex items-center gap-3 rounded-xl border bg-card p-3 transition-colors hover:border-primary/40"
+          data-testid="athlete-family-link"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-gold-soft text-gold-ink">
+            <Users className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Tessere familiari</p>
+            <p className="text-xs text-muted-foreground">Estendi lo sconto a genitori e parenti</p>
+          </div>
+          <ArrowRight className="size-4 text-primary" />
+        </Link>
         <div className="grid grid-cols-2 gap-3">
           <StatCard label="Risparmio totale" value={eur(t.discount)} icon={PiggyBank} accent testid="athlete-total-savings" />
           <StatCard label="Acquisti in convenzione" value={String(t.count)} icon={Receipt} testid="athlete-total-count" />
         </div>
       </section>
 
-      <section>
+      <section className="space-y-6">
+        {promos.length > 0 && (
+          <div className="animate-fade-up rounded-2xl border border-gold/50 bg-gold-soft p-4" data-testid="athlete-promos">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gold-ink">
+              <Sparkles className="size-4" /> Promozioni del mese
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {promos.map((m) => (
+                <div key={m.id} className="rounded-xl bg-white p-3 shadow-sm" data-testid={`athlete-promo-${m.id}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">{m.business_name}</p>
+                    <span className="tnum shrink-0 rounded-full bg-gold px-2 py-0.5 text-[11px] font-bold text-navy">-{pct(m.discount_percent)}</span>
+                  </div>
+                  <p className="mt-1 font-semibold">{m.promo_title}</p>
+                  {m.promo_description && <p className="mt-0.5 text-sm text-muted-foreground">{m.promo_description}</p>}
+                  {m.promo_end && <p className="mt-1 text-[11px] text-gold-ink">Fino al {m.promo_end.split("-").reverse().join("/")}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div>
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Dove risparmiare oggi</h1>
@@ -85,6 +124,7 @@ export default function AthleteCard() {
         </div>
         <div className="mt-4">
           <MerchantList limit={4} />
+        </div>
         </div>
       </section>
 
