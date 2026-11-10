@@ -22,7 +22,7 @@ function MerchantEditor({ target, onClose }: { target: AdminMerchant | "new"; on
   const isNew = target === "new";
   const [form, setForm] = useState<AdminMerchantSave>(() => {
     if (isNew) return { ...EMPTY_MERCHANT, account_email: "", new_password: "", published: true };
-    const { id: _i, created_at: _c, promo_active: _p, invited_at: _inv, announced_at: _an, ...rest } = target;
+    const { id: _i, created_at: _c, promo_active: _p, rating_avg: _ra, rating_count: _rc, invited_at: _inv, announced_at: _an, ...rest } = target;
     return { ...rest, new_password: "" };
   });
   const save = useMutation({

@@ -146,3 +146,16 @@
 }
 
 .tnum { font-variant-numeric: tabular-nums; }
+
+.lv-pin {
+  display: grid; place-items: center; height: 26px; min-width: 46px; padding: 0 8px;
+  border-radius: 999px; background: #1d4ed8; color: #fff; border: 2px solid #eab308;
+  font: 700 12px/1 'Plus Jakarta Sans Variable', sans-serif; box-shadow: 0 4px 10px rgb(15 23 42 / 30%);
+  transition: transform 150ms ease;
+}
+.lv-pin:hover { transform: scale(1.1); }
+.lv-pin::after {
+  content: ""; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: #eab308;
+}
+.lv-me { width: 16px; height: 16px; border-radius: 999px; background: #0ea5e9; border: 3px solid #fff; box-shadow: 0 0 0 6px rgb(14 165 233 / 25%); }

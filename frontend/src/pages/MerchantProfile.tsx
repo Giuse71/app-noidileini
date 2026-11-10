@@ -11,7 +11,7 @@ import { ME_KEY, useMe } from "@/lib/session";
 import type { Merchant, MerchantUpdate } from "@/lib/types";
 
 function ProfileForm({ merchant }: { merchant: Merchant }) {
-  const { id: _id, created_at: _c, ...initial } = merchant;
+  const { id: _id, created_at: _c, published: _p, promo_active: _pa, rating_avg: _ra, rating_count: _rc, ...initial } = merchant;
   const [form, setForm] = useState<MerchantUpdate>(initial);
   const save = useMutation({
     mutationFn: (b: MerchantUpdate) => apiPut<Merchant>("/merchants/me", b),

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ImageUpload from "@/components/ImageUpload";
 import GalleryUpload from "@/components/GalleryUpload";
+import LocationPicker from "@/components/LocationPicker";
 import { initials } from "@/lib/format";
 import { useCategories } from "@/lib/session";
 import type { AthleteUpdate, MerchantUpdate } from "@/lib/types";
@@ -62,9 +63,9 @@ export function AthleteFields({ value, onChange }: { value: AthleteUpdate; onCha
   );
 }
 
-export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onChange: (v: MerchantUpdate) => void }) {
+export function MerchantFields({ value, onChange, showMap = true }: { value: MerchantUpdate; onChange: (v: MerchantUpdate) => void; showMap?: boolean }) {
   const set = <K extends keyof MerchantUpdate>(k: K, v: MerchantUpdate[K]) => onChange({ ...value, [k]: v });
-  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent" | "promo_description" | "gallery">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
+  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent" | "promo_description" | "gallery" | "lat" | "lng">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
     <Field label={label} htmlFor={`m-${k}`} hint={opts.hint}>
       <Input
         id={`m-${k}`}
@@ -104,6 +105,9 @@ export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onC
           />
         </Field>
       </div>
+      {showMap && (
+        <LocationPicker lat={value.lat} lng={value.lng} address={value.address} city={value.city} onChange={(lat, lng) => onChange({ ...value, lat, lng })} />
+      )}
       <Field label="Descrizione dell'attività" htmlFor="m-description">
         <Textarea id="m-description" rows={3} value={value.description} onChange={(e) => set("description", e.target.value)} data-testid="merchant-description-input" />
       </Field>

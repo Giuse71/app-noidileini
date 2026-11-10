@@ -83,6 +83,8 @@ export interface MerchantUpdate {
   promo_start: string;
   promo_end: string;
   gallery: string[];
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface Merchant extends MerchantUpdate {
@@ -90,6 +92,18 @@ export interface Merchant extends MerchantUpdate {
   created_at: string;
   published: boolean;
   promo_active: boolean;
+  rating_avg: number;
+  rating_count: number;
+}
+
+export interface RatingIn {
+  stars: number;
+}
+
+export interface GeocodeOut {
+  found: boolean;
+  lat: number | null;
+  lng: number | null;
 }
 
 export interface AdminMerchant extends Merchant {
@@ -218,5 +232,6 @@ export interface Transaction {
   note: string;
   family_member_name: string;
   relation: string;
+  rating: number | null;
   created_at: string;
 }

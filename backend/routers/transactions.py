@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import current_user, require_role
 from lib.db import db
-from models.schemas import Transaction, TransactionCreate
+from datetime import timedelta
+
+from models.schemas import RatingIn, Transaction, TransactionCreate, now_utc
+
+RATING_DAYS = 30
 
 router = APIRouter(tags=["transactions"])
 
@@ -56,3 +60,22 @@ async def my_transactions(user: dict = Depends(current_user)):
 @router.get("/admin/transactions", response_model=List[Transaction], dependencies=[Depends(require_role("admin"))])
 async def all_transactions():
     return await db.transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+
+
+@router.post("/transactions/{id}/rating", response_model=Transaction)
+async def rate_transaction(id: str, body: RatingIn, user: dict = Depends(require_role("athlete"))):
+    athlete = await db.athletes.find_one({"user_id": user["id"]}, {"id": 1})
+    tx = await db.transactions.find_one({"id": id, "athlete_id": athlete["id"] if athlete else None}, {"_id": 0})
+    if not tx:
+        raise HTTPException(status_code=404, detail="Acquisto non trovato")
+    if tx["created_at"] < now_utc() - timedelta(days=RATING_DAYS):
+        raise HTTPException(status_code=400, detail=f"Puoi valutare un acquisto entro {RATING_DAYS} giorni")
+    await db.transactions.update_one({"id": id}, {"$set": {"rating": body.stars, "rated_at": now_utc()}})
+    stats = await db.transactions.aggregate([
+        {"$match": {"merchant_id": tx["merchant_id"], "rating": {"$ne": None}}},
+        {"$group": {"_id": None, "avg": {"$avg": "$rating"}, "n": {"$sum": 1}}},
+    ]).to_list(1)
+    if stats:
+        await db.merchants.update_one({"id": tx["merchant_id"]},
+                                      {"$set": {"rating_avg": round(stats[0]["avg"], 2), "rating_count": stats[0]["n"]}})
+    return Transaction(**{**tx, "rating": body.stars})

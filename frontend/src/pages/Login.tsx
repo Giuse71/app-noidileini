@@ -162,7 +162,7 @@ export default function Login() {
                   regMer.mutate(mer);
                 }}
               >
-                <MerchantFields value={mer} onChange={(v) => setMer({ ...mer, ...v })} />
+                <MerchantFields value={mer} onChange={(v) => setMer({ ...mer, ...v })} showMap={false} />
                 <div className="border-t pt-5">
                   <p className="mb-3 text-sm font-medium">Credenziali di accesso</p>
                   <Credentials

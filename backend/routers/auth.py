@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from lib.auth import clear_session, current_user, hash_password, set_session, verify_password
 from lib.db import db
 from lib.storage import save_gallery, save_image
+from lib.geocode import resolve_coords
 from routers.notify import announce_merchant, public_base, token_hash
 from models.schemas import (
     Athlete,
@@ -81,6 +82,7 @@ async def register_merchant(body: MerchantRegister, request: Request, response: 
     profile = MerchantUpdate(**body.model_dump()).model_dump()
     profile["logo"] = await save_image(profile["logo"], kind="merchants", owner_user_id=user["id"], public=True)
     profile["gallery"] = await save_gallery(profile["gallery"], owner_user_id=user["id"])
+    profile = await resolve_coords(profile, None)
     await db.users.insert_one(user)
     if not profile["email"]:
         profile["email"] = email

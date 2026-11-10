@@ -1,6 +1,9 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { dateTime, eur, pct } from "@/lib/format";
 import type { Transaction } from "@/lib/types";
+import Stars from "@/components/Stars";
+
+const RATE_WINDOW_MS = 30 * 86_400_000;
 
 export default function TransactionsTable({
   rows,
@@ -8,7 +11,11 @@ export default function TransactionsTable({
   showMerchant = true,
   emptyText = "Nessuna transazione registrata",
   testid = "transactions-table",
+  showRating = false,
+  onRate,
 }: {
+  showRating?: boolean;
+  onRate?: (t: Transaction, stars: number) => void;
   rows: Transaction[];
   showAthlete?: boolean;
   showMerchant?: boolean;
@@ -33,6 +40,7 @@ export default function TransactionsTable({
             <TableHead className="text-right">Lordo</TableHead>
             <TableHead className="text-right">Sconto</TableHead>
             <TableHead className="text-right">Pagato</TableHead>
+            {showRating && <TableHead className="text-center">{onRate ? "La tua valutazione" : "Valutazione"}</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -66,6 +74,17 @@ export default function TransactionsTable({
                 <span className="ml-2 text-muted-foreground">-{eur(t.discount_amount)}</span>
               </TableCell>
               <TableCell className="tnum text-right font-semibold">{eur(t.final_amount)}</TableCell>
+              {showRating && (
+                <TableCell className="text-center">
+                  {onRate && Date.now() - new Date(t.created_at).getTime() < RATE_WINDOW_MS ? (
+                    <Stars value={t.rating ?? 0} onChange={(n) => onRate(t, n)} testid={`rate-${t.id}`} />
+                  ) : t.rating ? (
+                    <Stars value={t.rating} testid={`rating-${t.id}`} />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

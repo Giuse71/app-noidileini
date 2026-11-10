@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from lib.auth import hash_password, require_role
 from lib.db import db
 from lib.storage import discard, save_gallery, save_image
+from lib.geocode import geocode, resolve_coords
 from models.schemas import (
     AdminMerchant,
     AdminMerchantSave,
@@ -17,6 +18,7 @@ from models.schemas import (
     AthleteUpdate,
     FamilyMember,
     FamilyMemberIn,
+    GeocodeOut,
     Merchant,
     MerchantUpdate,
     new_id,
@@ -149,6 +151,12 @@ async def list_merchants():
     return [Merchant(**d) for d in docs]
 
 
+@router.get("/geocode", response_model=GeocodeOut, dependencies=[Depends(require_role("merchant", "admin"))])
+async def geocode_address(address: str, city: str = "Leinì"):
+    coords = await geocode(address, city)
+    return GeocodeOut(found=bool(coords), lat=coords[0] if coords else None, lng=coords[1] if coords else None)
+
+
 # ---------- admin: merchant slots ----------
 async def _admin_merchant(doc: dict) -> AdminMerchant:
     user = await db.users.find_one({"id": doc["user_id"]}, {"email": 1})
@@ -173,7 +181,8 @@ async def admin_create_merchant(body: AdminMerchantSave, request: Request, backg
                                "role": "merchant", "created_at": now_utc()})
     logo = await save_image(body.logo, kind="merchants", owner_user_id=uid, public=True)
     gallery = await save_gallery(body.gallery, owner_user_id=uid)
-    doc = {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery, "published": body.published,
+    profile = await resolve_coords({**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery}, None)
+    doc = {**profile, "published": body.published,
            "id": new_id(), "user_id": uid, "created_at": now_utc()}
     await db.merchants.insert_one(dict(doc))
     if body.published:
@@ -196,7 +205,8 @@ async def admin_update_merchant(id: str, body: AdminMerchantSave, request: Reque
     await db.users.update_one({"id": doc["user_id"]}, {"$set": user_set})
     logo = await save_image(body.logo, kind="merchants", owner_user_id=doc["user_id"], public=True, old=doc.get("logo"))
     gallery = await save_gallery(body.gallery, owner_user_id=doc["user_id"], old=doc.get("gallery"))
-    update = {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery, "published": body.published}
+    update = await resolve_coords(
+        {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery, "published": body.published}, doc)
     doc = await db.merchants.find_one_and_update({"id": id}, {"$set": update}, projection={"_id": 0}, return_document=True)
     if body.published and not doc.get("announced_at"):
         background.add_task(announce_merchant, id, public_base(request))
@@ -213,11 +223,11 @@ async def my_merchant(user: dict = Depends(require_role("merchant"))):
 
 @router.put("/merchants/me", response_model=Merchant)
 async def update_my_merchant(body: MerchantUpdate, user: dict = Depends(require_role("merchant"))):
-    current = await db.merchants.find_one({"user_id": user["id"]}, {"logo": 1, "gallery": 1}) or {}
+    current = await db.merchants.find_one({"user_id": user["id"]}, {"_id": 0}) or {}
     logo = await save_image(body.logo, kind="merchants", owner_user_id=user["id"], public=True, old=current.get("logo"))
     gallery = await save_gallery(body.gallery, owner_user_id=user["id"], old=current.get("gallery"))
     doc = await db.merchants.find_one_and_update(
-        {"user_id": user["id"]}, {"$set": {**body.model_dump(), "logo": logo, "gallery": gallery}}, projection={"_id": 0}, return_document=True
+        {"user_id": user["id"]}, {"$set": await resolve_coords({**body.model_dump(), "logo": logo, "gallery": gallery}, current or None)}, projection={"_id": 0}, return_document=True
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Profilo non trovato")

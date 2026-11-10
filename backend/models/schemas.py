@@ -112,6 +112,8 @@ class MerchantUpdate(BaseModel):
     promo_start: str = Field(default="", pattern=DATE_RX)
     promo_end: str = Field(default="", pattern=DATE_RX)
     gallery: list[Annotated[str, Field(max_length=IMG_MAX)]] = Field(default_factory=list, max_length=GALLERY_MAX)
+    lat: Optional[float] = Field(default=None, ge=-90, le=90)
+    lng: Optional[float] = Field(default=None, ge=-180, le=180)
 
     @model_validator(mode="after")
     def _promo_dates(self):
@@ -125,6 +127,8 @@ class Merchant(MerchantUpdate):
     created_at: datetime
     published: bool = True
     promo_active: bool = False
+    rating_avg: float = 0
+    rating_count: int = 0
 
     @model_validator(mode="after")
     def _compute_promo(self):
@@ -208,7 +212,18 @@ class Transaction(BaseModel):
     note: str = ""
     family_member_name: str = ""
     relation: str = ""
+    rating: Optional[int] = None
     created_at: datetime = Field(default_factory=now_utc)
+
+
+class RatingIn(BaseModel):
+    stars: int = Field(ge=1, le=5)
+
+
+class GeocodeOut(BaseModel):
+    found: bool
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 # ---------- monthly reports ----------

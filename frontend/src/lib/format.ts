@@ -66,6 +66,8 @@ export const EMPTY_MERCHANT: MerchantUpdate = {
   promo_start: "",
   promo_end: "",
   gallery: [],
+  lat: null,
+  lng: null,
 };
 
 export function totals(rows: Transaction[]) {

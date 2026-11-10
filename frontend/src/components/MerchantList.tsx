@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { MapPin, Phone, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import Stars from "@/components/Stars";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { initials, pct } from "@/lib/format";
 import { useMerchants } from "@/lib/session";
@@ -22,6 +23,12 @@ function MerchantCard({ m }: { m: Merchant }) {
           <div className="min-w-0">
             <h3 className="truncate font-semibold">{m.business_name}</h3>
             {m.sector && <p className="text-xs text-muted-foreground">{m.sector}</p>}
+            {m.rating_count > 0 && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground" data-testid={`merchant-rating-${m.id}`}>
+                <Stars value={m.rating_avg} size="size-3.5" />
+                <span className="tnum font-medium text-foreground">{m.rating_avg.toFixed(1).replace(".", ",")}</span>({m.rating_count})
+              </p>
+            )}
           </div>
           <span className="tnum shrink-0 rounded-full bg-gold px-2.5 py-1 text-sm font-bold text-navy" data-testid={`merchant-discount-${m.id}`}>
             -{pct(m.discount_percent)}

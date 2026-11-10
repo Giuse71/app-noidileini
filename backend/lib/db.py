@@ -38,6 +38,7 @@ INDEXES: dict[str, list[IndexModel]] = {
                     IndexModel([("month", ASCENDING), ("merchant_id", ASCENDING), ("status", ASCENDING)], name="month_merchant")],
     "password_tokens": [IndexModel([("token_hash", ASCENDING)], name="token_hash", unique=True),
                         IndexModel([("user_id", ASCENDING), ("used", ASCENDING)], name="user_used")],
+    "geocodes": [IndexModel([("query", ASCENDING)], name="query", unique=True)],
     "files": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
     "cron_runs": [IndexModel([("run_id", ASCENDING)], name="run_id", unique=True)],
     "transactions": [IndexModel([("id", ASCENDING)], name="id", unique=True),

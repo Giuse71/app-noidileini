@@ -104,6 +104,13 @@ async def main() -> None:
     # partners already visible before the announcement feature never trigger a mass email
     await db.merchants.update_many({"published": {"$ne": False}, "announced_at": None}, {"$set": {"announced_at": now_utc()}})
 
+    # place partners on the map (cached, ≤1 req/s)
+    from lib.geocode import geocode
+    async for m in db.merchants.find({"published": {"$ne": False}, "lat": None, "address": {"$ne": ""}}, {"_id": 0}):
+        coords = await geocode(m["address"], m.get("city", ""))
+        if coords:
+            await db.merchants.update_one({"id": m["id"]}, {"$set": {"lat": coords[0], "lng": coords[1]}})
+
     if await db.transactions.count_documents({}) == 0:
         rnd = random.Random(42)
         for i in range(14):
