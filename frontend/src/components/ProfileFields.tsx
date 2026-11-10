@@ -1,0 +1,109 @@
+import type { ReactNode } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ImageUpload from "@/components/ImageUpload";
+import { initials } from "@/lib/format";
+import { useCategories } from "@/lib/session";
+import type { AthleteUpdate, MerchantUpdate } from "@/lib/types";
+
+export function Field({ label, htmlFor, children, hint }: { label: string; htmlFor: string; children: ReactNode; hint?: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+export function AthleteFields({ value, onChange }: { value: AthleteUpdate; onChange: (v: AthleteUpdate) => void }) {
+  const { data: categories = [] } = useCategories();
+  const labels = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  const set = <K extends keyof AthleteUpdate>(k: K, v: AthleteUpdate[K]) => onChange({ ...value, [k]: v });
+
+  return (
+    <div className="space-y-4">
+      <ImageUpload
+        value={value.photo}
+        onChange={(v) => set("photo", v)}
+        label="Foto profilo"
+        testid="athlete-photo"
+        round
+        placeholder={initials(value.first_name, value.last_name) || undefined}
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Nome" htmlFor="ath-first">
+          <Input id="ath-first" required value={value.first_name} onChange={(e) => set("first_name", e.target.value)} data-testid="athlete-first-name-input" />
+        </Field>
+        <Field label="Cognome" htmlFor="ath-last">
+          <Input id="ath-last" required value={value.last_name} onChange={(e) => set("last_name", e.target.value)} data-testid="athlete-last-name-input" />
+        </Field>
+      </div>
+      <Field label="Categoria di appartenenza" htmlFor="ath-cat">
+        <Select value={value.category_id} onValueChange={(v: string) => set("category_id", v)}>
+          <SelectTrigger id="ath-cat" className="w-full" data-testid="athlete-category-select">
+            <SelectValue placeholder="Seleziona la categoria">{(v) => labels[v as string] ?? "Seleziona la categoria"}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id} data-testid={`athlete-category-option-${c.id}`}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+    </div>
+  );
+}
+
+export function MerchantFields({ value, onChange }: { value: MerchantUpdate; onChange: (v: MerchantUpdate) => void }) {
+  const set = <K extends keyof MerchantUpdate>(k: K, v: MerchantUpdate[K]) => onChange({ ...value, [k]: v });
+  const text = (k: Exclude<keyof MerchantUpdate, "logo" | "discount_percent">, label: string, opts: { required?: boolean; hint?: string; type?: string } = {}) => (
+    <Field label={label} htmlFor={`m-${k}`} hint={opts.hint}>
+      <Input
+        id={`m-${k}`}
+        type={opts.type ?? "text"}
+        required={opts.required}
+        value={value[k]}
+        onChange={(e) => set(k, e.target.value)}
+        data-testid={`merchant-${k.replace(/_/g, "-")}-input`}
+      />
+    </Field>
+  );
+
+  return (
+    <div className="space-y-4">
+      <ImageUpload value={value.logo} onChange={(v) => set("logo", v)} label="Logo aziendale" testid="merchant-logo" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {text("business_name", "Nome attività / insegna", { required: true })}
+        {text("legal_name", "Ragione sociale")}
+        {text("vat_number", "Partita IVA", { required: true, hint: "11 cifre (es. 01234567890)" })}
+        {text("sector", "Settore", { hint: "Es. Pizzeria, Bar, Ottico, Abbigliamento" })}
+        {text("address", "Indirizzo")}
+        {text("city", "Comune")}
+        {text("phone", "Telefono", { type: "tel" })}
+        {text("email", "Email pubblica", { type: "email" })}
+        {text("website", "Sito web")}
+        <Field label="Sconto convenzione (%)" htmlFor="m-discount" hint="Applicato automaticamente a ogni transazione">
+          <Input
+            id="m-discount"
+            type="number"
+            min={0}
+            max={100}
+            step={0.5}
+            required
+            value={value.discount_percent}
+            onChange={(e) => set("discount_percent", Number(e.target.value))}
+            data-testid="merchant-discount-input"
+          />
+        </Field>
+      </div>
+      <Field label="Descrizione dell'attività" htmlFor="m-description">
+        <Textarea id="m-description" rows={3} value={value.description} onChange={(e) => set("description", e.target.value)} data-testid="merchant-description-input" />
+      </Field>
+    </div>
+  );
+}

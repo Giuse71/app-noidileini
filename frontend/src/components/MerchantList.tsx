@@ -1,0 +1,108 @@
+import { useMemo, useState } from "react";
+import { MapPin, Phone, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { initials, pct } from "@/lib/format";
+import { useMerchants } from "@/lib/session";
+import type { Merchant } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+function MerchantCard({ m }: { m: Merchant }) {
+  return (
+    <article
+      className="group animate-fade-up flex gap-4 rounded-xl border bg-card p-4 transition-[border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40"
+      data-testid={`merchant-card-${m.id}`}
+    >
+      <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl border bg-accent font-bold text-primary">
+        {m.logo ? <img src={m.logo} alt={m.business_name} className="size-full bg-white object-contain" /> : initials(...m.business_name.split(" "))}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="truncate font-semibold">{m.business_name}</h3>
+            {m.sector && <p className="text-xs text-muted-foreground">{m.sector}</p>}
+          </div>
+          <span className="tnum shrink-0 rounded-full bg-gold px-2.5 py-1 text-sm font-bold text-navy" data-testid={`merchant-discount-${m.id}`}>
+            -{pct(m.discount_percent)}
+          </span>
+        </div>
+        {m.description && <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>}
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {(m.address || m.city) && (
+            <a
+              className="flex items-center gap-1 hover:text-primary"
+              href={`https://maps.google.com/?q=${encodeURIComponent(`${m.address} ${m.city}`)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <MapPin className="size-3.5" />
+              {[m.address, m.city].filter(Boolean).join(", ")}
+            </a>
+          )}
+          {m.phone && (
+            <a className="flex items-center gap-1 hover:text-primary" href={`tel:${m.phone}`}>
+              <Phone className="size-3.5" />
+              {m.phone}
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default function MerchantList({ limit }: { limit?: number }) {
+  const { data, isLoading, isError } = useMerchants();
+  const [q, setQ] = useState("");
+  const [sector, setSector] = useState("");
+  const merchants = isError ? [] : (data ?? []);
+  const sectors = useMemo(() => [...new Set(merchants.map((m) => m.sector).filter(Boolean))].sort(), [merchants]);
+  const filtered = merchants
+    .filter((m) => (!sector || m.sector === sector) && `${m.business_name} ${m.sector}`.toLowerCase().includes(q.toLowerCase()))
+    .slice(0, limit);
+
+  return (
+    <div className="space-y-4">
+      {!limit && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca attività o settore…" className="h-10 pl-9" data-testid="merchant-search-input" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["", ...sectors].map((s) => (
+              <button
+                key={s || "all"}
+                type="button"
+                onClick={() => setSector(s)}
+                data-testid={`sector-filter-${s || "tutti"}`}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  sector === s ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:border-primary/50",
+                )}
+              >
+                {s || "Tutti"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {isLoading ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-xl bg-muted" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground" data-testid="merchant-list-empty">
+          Nessun commerciante convenzionato da mostrare
+        </p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2" data-testid="merchant-list">
+          {filtered.map((m) => (
+            <MerchantCard key={m.id} m={m} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

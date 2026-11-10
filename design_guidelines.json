@@ -1,0 +1,200 @@
+{
+  "name": "Noi di Leyni - Leinì Volley & Partner",
+  "description": "Volleyball club membership & sponsor discount management system; athletes on mobile card, merchants at POS counter, club administrators on desktop",
+  "build_now": "Deliver seamless QR card generation for athletes, instant merchant discount calculator & scanner with transaction logging, and admin dashboard with association management and transaction audit.",
+  "tokens": {
+    "colors": {
+      "primary": "#1d4ed8",
+      "on-primary": "#ffffff",
+      "primary-container": "#eff6ff",
+      "on-primary-container": "#1e3a8a",
+      "background": "#f8fafc",
+      "surface": "#ffffff",
+      "surface-container": "#f1f5f9",
+      "on-surface": "#0f172a",
+      "on-surface-variant": "#475569",
+      "outline": "#64748b",
+      "outline-variant": "#e2e8f0",
+      "error": "#b91c1c",
+      "on-error": "#ffffff",
+      "error-container": "#fef2f2",
+      "on-error-container": "#991b1b",
+      "success-container": "#ecfdf5",
+      "on-success-container": "#065f46",
+      "warning-container": "#fefce8",
+      "on-warning-container": "#854d0e",
+      "info-container": "#e0f2fe",
+      "on-info-container": "#075985",
+      "chart-1": "#1d4ed8",
+      "chart-2": "#eab308",
+      "chart-3": "#0284c7",
+      "chart-4": "#10b981"
+    },
+    "typography": {
+      "headline-lg": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "24px",
+        "fontWeight": 600,
+        "lineHeight": 1.25
+      },
+      "headline-md": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "18px",
+        "fontWeight": 600,
+        "lineHeight": 1.35
+      },
+      "body-md": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "14px",
+        "fontWeight": 400,
+        "lineHeight": 1.5
+      },
+      "label-lg": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "14px",
+        "fontWeight": 500,
+        "lineHeight": 1.4
+      },
+      "label-md": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "12px",
+        "fontWeight": 500,
+        "lineHeight": 1.4
+      },
+      "number-lg": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "28px",
+        "fontWeight": 600,
+        "lineHeight": 1.2,
+        "fontFeature": "tnum"
+      },
+      "body-lg": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "16px",
+        "fontWeight": 400,
+        "lineHeight": 1.6
+      },
+      "display-lg": {
+        "fontFamily": "Plus Jakarta Sans",
+        "fontSize": "36px",
+        "fontWeight": 700,
+        "lineHeight": 1.15
+      }
+    },
+    "rounded": {
+      "sm": "4px",
+      "md": "8px",
+      "lg": "12px",
+      "full": "9999px"
+    },
+    "spacing": {
+      "base": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "32px",
+      "control": "38px",
+      "row": "46px",
+      "content-max": "1200px"
+    },
+    "components": {
+      "button-primary": {
+        "backgroundColor": "{colors.primary}",
+        "textColor": "{colors.on-primary}",
+        "rounded": "{rounded.md}",
+        "height": "{spacing.control}"
+      },
+      "button-secondary": {
+        "backgroundColor": "{colors.surface}",
+        "textColor": "{colors.on-surface}",
+        "rounded": "{rounded.md}",
+        "height": "{spacing.control}"
+      },
+      "input": {
+        "backgroundColor": "{colors.surface}",
+        "textColor": "{colors.on-surface}",
+        "rounded": "{rounded.md}",
+        "height": "{spacing.control}"
+      },
+      "nav-item-active": {
+        "backgroundColor": "{colors.primary-container}",
+        "textColor": "{colors.on-primary-container}",
+        "rounded": "{rounded.md}"
+      },
+      "table-header": {
+        "backgroundColor": "{colors.surface-container}",
+        "textColor": "{colors.on-surface-variant}",
+        "height": "40px"
+      },
+      "table-row": {
+        "backgroundColor": "{colors.surface}",
+        "textColor": "{colors.on-surface}",
+        "height": "{spacing.row}"
+      },
+      "badge-status": {
+        "backgroundColor": "{colors.success-container}",
+        "textColor": "{colors.on-success-container}",
+        "rounded": "{rounded.full}"
+      }
+    }
+  },
+  "guidelines": {
+    "overview": [
+      "Category: sports association and local merchant loyalty network; sub-category: volleyball club sponsorship card (Convenzione Sponsor).",
+      "Users and usage: Athletes checking membership card & merchant perks on smartphones; merchants entering receipt totals and scanning QR at cash registers; club executives tracking affiliate revenue and categories on desktop.",
+      "What suits it: Mobile-friendly digital membership badge with high-contrast QR code, rapid-entry point-of-sale receipt calculator with instant discount preview, clean audit tables for the club committee.",
+      "Concept: Tessera Digitale & Ricevuta Convenzione. Authentic sports membership badge in Leinì Volley royal blue and gold (#1d4ed8 and #eab308) paired with modern Italian retail receipt cards.",
+      "User choices: Italian language throughout, club palette Blu/Giallo, role-separated portals (Atleta, Commerciante, Amministrazione), personal athlete QR code with camera scanner & manual fallback, category assignments (Under 13, Under 16, Serie C, etc.), merchant profile with P.IVA and logo.",
+      "This design is deliberate: its fonts, colours, flat surfaces, spacing and calm motion take precedence over generic visual defaults."
+    ],
+    "colors": [
+      "Brand primary royal blue (#1d4ed8) from Leinì Volley visual identity; club gold/yellow accent (#eab308, container #fefce8) representing sports awards and sponsor badges; cool neutral slate grey scale (#f8fafc to #0f172a).",
+      "The primary marks the main action, the selected item, links and focus; gold accent highlights discount percentages and athlete tier badges.",
+      "Statuses: Registrato/Attivo (success), In attesa (warning), Sospeso (error), Sponsor Oro/Partner (info), Non applicabile (neutral). Each shows its word in a pill of its container colour with on-container text."
+    ],
+    "typography": [
+      "Plus Jakarta Sans from Google Fonts at 400, 500, 600 and 700 for clarity on small mobile screens and high-density financial tables.",
+      "Italian currency formatted with comma separator and euro symbol (e.g., 24,50 €), date formatted as DD/MM/YYYY HH:mm. Tabular figures on amounts, card codes and discounts."
+    ],
+    "layout": [
+      "Navigation: Mobile bottom navigation bar for Athletes (Tessera, Negozi Convenzionati, Movimenti, Profilo) and Merchants (Scannerizza, Nuova Transazione, Storico Cassa, Profilo Attività). Top bar with role switcher and association branding on desktop; desktop sidebar for Club Admin.",
+      "Content up to 1200px with 16px mobile and 24px desktop gutters; card padding 16px, table rows 46px.",
+      "Breakpoints: desktop >=1024px; tablet 768-1023px; phone <768px with fixed bottom quick-actions and full-width card layout for QR presentation."
+    ],
+    "elevation_and_depth": [
+      "Flat architecture: cards and panels use a crisp 1px outline-variant border; single soft drop shadow exclusively for modal camera scanners and dropdown drawers."
+    ],
+    "shapes": [
+      "8px rounded corners on buttons and input fields; 12px on membership cards and merchant highlight tiles; fully round for status badges and athlete avatar photos."
+    ],
+    "components": [
+      "States: hover subtle primary tint, focus 2px primary ring, disabled 50% opacity, action states show localized spinner.",
+      "Tessera Atleta (Signature 1): Dual-tone membership card with Leinì Volley crest, athlete photo, category pill, athlete ID code, dynamic SVG QR code, and tap-to-enlarge action.",
+      "Calcolatore Sconto Cassa (Signature 2): Fast merchant POS calculator: gross amount input (€), applied discount % badge, calculated discount (-€), net payable amount in large bold text, with single-click 'Registra Transazione' button.",
+      "Badge Convenzione Negozio (Signature 3): Merchant directory card showing business logo, category, address in Leinì, active discount percentage (e.g. -15%), and phone/map links.",
+      "Tables: Tabular receipt log with columns Data/Ora, Atleta, Categoria, Importo Lordo, Sconto %, Totale Pagato; right-aligned currency columns."
+    ],
+    "dos_and_donts": [
+      "Do: Include demo athlete and merchant accounts ready to switch in 1-click for immediate testing; display club data (A.S.D. Leinì Volley, P.IVA/CF, Sede di Gioco) in both footer and admin settings.",
+      "Do: Provide fallback manual code input alongside QR camera scan for devices without camera access or permissions.",
+      "Don't: Mix English terms in the operational UI (use Transazioni, Atleti, Convenzioni, Sconto, Registra, Categoria); don't use harsh unbranded neon yellows."
+    ]
+  },
+  "screens": [
+    "In build order; screen 1 is what the main user sees after signing in.",
+    "1. `/atleta/tessera` Tessera Atleta: Atleta registrato; answers \"Qual è il mio codice e dove posso risparmiare oggi?\"; tessera club con foto, QR code personale e codice alfanumerico, riassunto risparmio cumulativo, lista rapida commercianti convenzionati; azione principale \"Mostra QR al Commerciante\".",
+    "2. `/commerciante/cassa` Cassa & Scanner Sconti: Commerciante partner; answers \"Come registro lo sconto per l'atleta al bancone?\"; scanner QR fotocamera attiva con opzione inserimento codice manuale, scheda atleta riconosciuto con categoria, tastierino importo spesa, calcolo automatico netto, pulsante \"Conferma e Registra Transazione\".",
+    "3. `/convenzioni` Elenco Partner & Negozi: Atleta o Visitatore; answers \"Quali attività di Leinì offrono sconti e quanto risparmio?\"; ricerca per nome o settore (Pizzeria, Abbigliamento, Ottico, Farmacia, Bar), card negozio con logo, sconto applicato, indirizzo e orari.",
+    "4. `/commerciante/storico` Registro Cassa Esercente: Commerciante; answers \"Quante vendite convenzionate ho effettuato questo mese?\"; metriche totali (spesa generata, clienti atleti unici), tabella transazioni con filtro data e dettaglio atleta.",
+    "5. `/admin/dashboard` Portale Direttivo Leinì Volley: Amministratore ASD; answers \"Come procede la convenzione sponsor e come gestisco le categorie?\"; KPI generali (Totale transazioni, Valore sconti erogati, N. atleti attivi, N. partner), tabella atleti, tabella sponsor, gestione categorie (Under 12, Under 14, Under 16, Under 18, Serie C, Amatori, Staff), impostazioni anagrafica societaria.",
+    "6. `/login` Accesso & Registrazione: Tutti gli utenti; answers \"Come accedo alla mia area riservata?\"; brand moment Leinì Volley, selettore rapido profilo demo (Atleta, Commerciante, Admin) e form di registrazione con upload foto/logo e P.IVA."
+  ],
+  "first_run": [
+    "Demo data: 8 atleti Leinì Volley (es. Giulia Rossi - Under 16, Marco Bianchi - Serie C Maschile, Sofia Ferrari - Under 14), 6 commercianti convenzionati di Leinì (Pizzeria Da Gianni -15%, Ottica Leyni -20%, Farmacia San Giovanni -10%, Bar Sport Leinì -10%, Abbigliamento Moda In -15%, Fisioterapia Reba -25%), 14 transazioni realistiche con data e importi tra 8,50 € e 120,00 €.",
+    "The sign-in page shows the Leinì Volley official badge, quick role-switchers (Atleta di prova, Commerciante convenzionato, Dirigente Admin) for instant review, and clean registration tabs."
+  ],
+  "customer_pages": [
+    "Pagina pubblica Convenzioni Sponsor: Vetrina delle attività commerciali partner di Leinì che sostengono la pallavolo locale, con percentuali di sconto visibili e invito per nuovi esercenti a richiedere la convenzione.",
+    "Informazioni verificabili: Palazzetto dello Sport di Leinì (Via Volpiano), recapiti e-mail societari, regolamento convenzione tesserati."
+  ]
+}
