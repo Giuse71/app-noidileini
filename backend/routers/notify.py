@@ -14,7 +14,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from lib.auth import require_role
 from lib.db import db
 from lib.email import EmailError, send_email
-from models.schemas import DigestResult, InviteResult, Merchant, now_utc
+from lib.auth import hash_password
+from models.schemas import AdminUser, DigestResult, ForgotPasswordIn, InviteResult, Merchant, NewAdminIn, new_id, now_utc
 
 router = APIRouter(tags=["notify"])
 logger = logging.getLogger(__name__)
@@ -61,6 +62,114 @@ def _button(href: str, label: str) -> str:
             f'padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:bold">{escape(label)}</a></p>')
 
 
+async def issue_password_link(user: dict, base: str, valid: timedelta) -> str:
+    """Single active link per user: older unused links are revoked."""
+    token = secrets.token_urlsafe(32)
+    await db.password_tokens.update_many({"user_id": user["id"], "used": False}, {"$set": {"used": True}})
+    await db.password_tokens.insert_one({"token_hash": token_hash(token), "user_id": user["id"], "used": False,
+                                         "expires_at": now_utc() + valid, "created_at": now_utc()})
+    return f"{base}/imposta-password?token={token}"
+
+
+# ---------- forgot password (public; never reveals whether the email exists) ----------
+RESET_MINUTES = 60
+
+
+async def _send_reset(user: dict, base: str) -> None:
+    recent = await db.password_tokens.find_one({"user_id": user["id"], "created_at": {"$gt": now_utc() - timedelta(minutes=2)}})
+    if recent:
+        return  # throttle repeated requests
+    link = await issue_password_link(user, base, timedelta(minutes=RESET_MINUTES))
+    assoc_name = await _assoc_name()
+    inner = (
+        "<p>Ciao,</p><p>abbiamo ricevuto una richiesta di reimpostazione della password per l'account "
+        f"<strong>{escape(user['email'])}</strong> su App Noi di Leyni.</p>"
+        f"{_button(link, 'Scegli una nuova password')}"
+        f'<p style="font-size:12px;color:#64748b">Il pulsante è valido {RESET_MINUTES} minuti e si può usare una sola volta. '
+        "Se non hai chiesto tu il cambio, ignora questa email: la tua password resta invariata.</p>"
+    )
+    try:
+        await send_email(to=[user["email"]], subject=f"Reimposta la password – {assoc_name}", html=_frame(assoc_name, inner))
+    except (EmailError, ValueError) as e:
+        logger.warning("reset email to %s failed: %s", user["email"], e)
+
+
+@router.post("/auth/forgot-password")
+async def forgot_password(body: ForgotPasswordIn, request: Request, background: BackgroundTasks):
+    user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
+    base = public_base(request)
+    if user and base and not is_demo(user["email"]):
+        background.add_task(_send_reset, user, base)
+    return {"ok": True}
+
+
+# ---------- board members (admins) ----------
+async def _invite_admin(user: dict, base: str) -> None:
+    link = await issue_password_link(user, base, timedelta(days=TOKEN_DAYS))
+    assoc_name = await _assoc_name()
+    inner = (
+        f"<p>Ciao,</p><p>sei stato aggiunto al <strong>direttivo</strong> di {escape(assoc_name)} su App Noi di Leyni: "
+        "potrai gestire atleti, commercianti, convenzioni e report.</p>"
+        f"<p>Il tuo accesso: <strong>{escape(user['email'])}</strong>.</p>{_button(link, 'Scegli la tua password')}"
+        f'<p style="font-size:12px;color:#64748b">Il pulsante è valido {TOKEN_DAYS} giorni.</p>'
+    )
+    await send_email(to=[user["email"]], subject=f"Accesso al direttivo – {assoc_name}", html=_frame(assoc_name, inner))
+
+
+@router.get("/admin/admins", response_model=list[AdminUser])
+async def list_admins(me: dict = Depends(require_role("admin"))):
+    docs = await db.users.find({"role": "admin"}, {"_id": 0, "id": 1, "email": 1, "created_at": 1}).sort("email", 1).to_list(200)
+    return [AdminUser(**d, is_me=d["id"] == me["id"]) for d in docs]
+
+
+@router.post("/admin/admins", response_model=AdminUser, dependencies=[Depends(require_role("admin"))])
+async def add_admin(body: NewAdminIn, request: Request):
+    email = body.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail="Email già usata da un altro account")
+    base = public_base(request)
+    if not base:
+        raise HTTPException(status_code=400, detail="Indirizzo pubblico dell'app non disponibile")
+    user = {"id": new_id(), "email": email, "password_hash": hash_password(secrets.token_urlsafe(24)),
+            "role": "admin", "created_at": now_utc()}
+    await db.users.insert_one(dict(user))
+    if not is_demo(email):
+        try:
+            await _invite_admin(user, base)
+        except (EmailError, ValueError) as e:
+            logger.warning("admin invite to %s failed: %s", email, e)
+            raise HTTPException(status_code=502, detail="Membro aggiunto ma email non inviata: usa 'Reinvia invito'")
+    return AdminUser(id=user["id"], email=email, created_at=user["created_at"])
+
+
+@router.post("/admin/admins/{id}/invite", response_model=InviteResult, dependencies=[Depends(require_role("admin"))])
+async def resend_admin_invite(id: str, request: Request):
+    user = await db.users.find_one({"id": id, "role": "admin"}, {"_id": 0})
+    base = public_base(request)
+    if not user:
+        raise HTTPException(status_code=404, detail="Membro non trovato")
+    if is_demo(user["email"]) or not base:
+        raise HTTPException(status_code=400, detail="Email dimostrativa o indirizzo app non disponibile")
+    try:
+        await _invite_admin(user, base)
+    except (EmailError, ValueError) as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return InviteResult(sent_to=user["email"], invited_at=now_utc())
+
+
+@router.delete("/admin/admins/{id}")
+async def remove_admin(id: str, me: dict = Depends(require_role("admin"))):
+    if id == me["id"]:
+        raise HTTPException(status_code=400, detail="Non puoi rimuovere il tuo stesso account")
+    if not await db.users.find_one({"id": id, "role": "admin"}):
+        raise HTTPException(status_code=404, detail="Membro non trovato")
+    if await db.users.count_documents({"role": "admin"}) <= 1:
+        raise HTTPException(status_code=400, detail="Deve restare almeno un membro del direttivo")
+    await db.users.delete_one({"id": id, "role": "admin"})
+    await db.password_tokens.update_many({"user_id": id, "used": False}, {"$set": {"used": True}})
+    return {"ok": True}
+
+
 # ---------- invitations ----------
 @router.post("/admin/merchants/{id}/invite", response_model=InviteResult, dependencies=[Depends(require_role("admin"))])
 async def invite_merchant(id: str, request: Request):
@@ -73,12 +182,8 @@ async def invite_merchant(id: str, request: Request):
     base = public_base(request)
     if not base:
         raise HTTPException(status_code=400, detail="Indirizzo pubblico dell'app non disponibile")
-    token = secrets.token_urlsafe(32)
-    await db.password_tokens.update_many({"user_id": user["id"], "used": False}, {"$set": {"used": True}})
-    await db.password_tokens.insert_one({"token_hash": token_hash(token), "user_id": user["id"], "used": False,
-                                         "expires_at": now_utc() + timedelta(days=TOKEN_DAYS), "created_at": now_utc()})
+    link = await issue_password_link(user, base, timedelta(days=TOKEN_DAYS))
     assoc_name = await _assoc_name()
-    link = f"{base}/imposta-password?token={token}"
     inner = (
         f"<p>Ciao <strong>{escape(merchant['business_name'])}</strong>,</p>"
         f"<p>benvenuto tra i partner della convenzione sponsor di {escape(assoc_name)}! Da ora gli atleti e le loro famiglie "

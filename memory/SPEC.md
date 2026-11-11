@@ -48,3 +48,7 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 ## v6
 - **Cambia password** (all roles: athlete, merchant, admin): header button "Password" → dialog. POST /auth/change-password {current_password, new_password ≥6}; wrong current → 400, same as current → 400, anonymous → 401; invalidates pending invite links.
 - Demo login buttons read from frontend/.env VITE_DEMO_LOGINS and render only in dev (import.meta.env.DEV).
+
+## v7
+- **Password dimenticata**: /login "Password dimenticata?" → POST /auth/forgot-password {email} always 200 (no enumeration); if account exists & non-demo, background email with 60-min single-use link to /imposta-password (throttled: 1 link per 2 min). Older unused links revoked.
+- **Direttivo**: admin tab "Direttivo": GET/POST /admin/admins (add by email → admin user + 7-day set-password invite), POST /admin/admins/{id}/invite, DELETE /admin/admins/{id} (not self, not last admin). All admins have full panel rights.

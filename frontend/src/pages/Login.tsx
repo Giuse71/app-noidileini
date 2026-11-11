@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Crest from "@/components/Crest";
+import ForgotPasswordDialog from "@/components/ForgotPasswordDialog";
 import { AthleteFields, Field, MerchantFields } from "@/components/ProfileFields";
 import { apiPost } from "@/lib/api";
 import { EMPTY_MERCHANT, errMsg } from "@/lib/format";
@@ -132,6 +133,7 @@ export default function Login() {
                   {login.isPending && <Loader2 className="size-4 animate-spin" />} Accedi
                 </Button>
               </form>
+              <ForgotPasswordDialog initialEmail={email} />
               {DEMO.length > 0 && (
               <div className="rounded-xl border border-dashed p-4" data-testid="demo-logins">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account dimostrativi</p>

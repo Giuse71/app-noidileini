@@ -67,7 +67,7 @@ export default function SetPassword() {
                 <KeyRound className="size-5 text-primary" /> Scegli la tua password
               </h1>
               <p className="mt-1 text-sm text-muted-foreground" data-testid="set-password-account">
-                {info.isLoading ? "Verifica del link…" : `${info.data?.business_name ?? ""} · ${info.data?.email ?? ""}`}
+                {info.isLoading ? "Verifica del link…" : [info.data?.business_name, info.data?.email].filter(Boolean).join(" · ")}
               </p>
             </div>
             <Field label="Nuova password" htmlFor="sp-pw" hint="Almeno 6 caratteri">

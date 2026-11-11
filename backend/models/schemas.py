@@ -183,6 +183,21 @@ class ChangePasswordIn(BaseModel):
     new_password: str = Field(min_length=6, max_length=128)
 
 
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class NewAdminIn(BaseModel):
+    email: EmailStr
+
+
+class AdminUser(BaseModel):
+    id: str
+    email: str
+    created_at: Optional[datetime] = None
+    is_me: bool = False
+
+
 class InviteResult(BaseModel):
     sent_to: str
     invited_at: datetime

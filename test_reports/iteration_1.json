@@ -1,0 +1,59 @@
+{
+  "iteration": 1,
+  "passed": 7,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Forgot password from login page",
+      "name": "forgot-password-login-flow",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "On /login, filled login-email-input, clicked forgot-password-link -> forgot-password-dialog opened with forgot-password-email-input prefilled with the same email; submit showed forgot-password-sent, no POST /api/auth/login fired (tracked via page.on('request')), no 'Email o password non corretti' toast, URL stayed on /login. Also re-ran once against the public preview URL https://noi-leyni--0yh202aj.preview.emergentagent.com (passed)."
+    },
+    {
+      "criterion": "Forgot password API never reveals whether an email exists",
+      "name": "test_tscheck_forgot_password_no_enum.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /api/auth/forgot-password: unknown tscheck-nouser-*@example.it -> 200 {ok:true}; existing giulia.rossi@example.it -> 200 {ok:true} (read-only, not modified); {email:'not-an-email'} -> 422. 3 asserts, all passed."
+    },
+    {
+      "criterion": "Reset link sets a new password and logs in",
+      "name": "test_tscheck_reset_password_token.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Created temp tscheck-reset-*@example.it athlete via /auth/register/athlete, inserted a password_tokens row directly in Mongo (sha256 token_hash, used=false, expires in 30min). GET /api/auth/password-token/{token} -> 200 returns the email; POST /api/auth/set-password -> 200 logs in as that user; reusing same token -> 400. Temp user + token cleaned up in fixture teardown."
+    },
+    {
+      "criterion": "Admin adds a board member",
+      "name": "admin-board-add-remove-member",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Logged in as admin@leinivolley.it, admin-tab-board -> board-email-input + board-add-button with tscheck-board-*@example.it created board-member-<email> row; re-submitting same email showed a 409 duplicate error toast ('...usata da un altro account')."
+    },
+    {
+      "criterion": "Admin removes a board member; cannot remove self or last admin",
+      "name": "admin-board-add-remove-member",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Same check: board-member-admin@leinivolley.it (logged-in admin) shows the 'tu' badge and has no board-remove-* button; board-remove-<tscheck email> with confirm dialog removed the freshly-created row (count -> 0). API self-removal cross-checked in test_tscheck_board_admin_only.py::test_admin_cannot_remove_self (DELETE /api/admin/admins/{own id} -> 400)."
+    },
+    {
+      "criterion": "Board member access is admin-only",
+      "name": "test_tscheck_board_admin_only.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/admin/admins anonymous -> 401; logged in as pizzeria@example.it (merchant) -> 403. Also includes test_admin_cannot_remove_self: logged in as admin@leinivolley.it, DELETE /api/admin/admins/{own id} -> 400."
+    },
+    {
+      "criterion": "Change password still works for all roles",
+      "name": "change-password-dialog-flow",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Registered a temp tscheck-cp-*@example.it athlete, opened change-password-open-button -> change-password-dialog; wrong current password -> 'non è corretta' error shown; correct current password ('Original2026!') -> dialog closed (success). Seeded accounts untouched."
+    }
+  ]
+}

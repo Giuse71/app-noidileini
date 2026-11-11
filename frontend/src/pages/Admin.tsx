@@ -14,6 +14,7 @@ import StatCard from "@/components/StatCard";
 import TransactionsTable from "@/components/TransactionsTable";
 import { AdminMerchantsTab, ReportsTab } from "@/components/AdminExtras";
 import RankingTab from "@/components/RankingTab";
+import BoardTab from "@/components/BoardTab";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { dateTime, errMsg, eur, initials, totals } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
@@ -310,6 +311,7 @@ export default function Admin() {
             <TabsTrigger value="ranking" data-testid="admin-tab-ranking">Classifica sponsor</TabsTrigger>
             <TabsTrigger value="reports" data-testid="admin-tab-reports">Report mensili</TabsTrigger>
             <TabsTrigger value="association" data-testid="admin-tab-association">Associazione</TabsTrigger>
+            <TabsTrigger value="board" data-testid="admin-tab-board">Direttivo</TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
@@ -318,6 +320,7 @@ export default function Admin() {
         <TabsContent value="merchants" className="mt-6"><AdminMerchantsTabWrapper /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
         <TabsContent value="ranking" className="mt-6"><RankingTab /></TabsContent>
+        <TabsContent value="board" className="mt-6"><BoardTab /></TabsContent>
         <TabsContent value="reports" className="mt-6"><ReportsTab /></TabsContent>
         <TabsContent value="association" className="mt-6">
           {assoc.isLoading ? (

@@ -122,6 +122,21 @@ export interface SetPasswordIn {
   password: string;
 }
 
+export interface ForgotPasswordIn {
+  email: string;
+}
+
+export interface NewAdminIn {
+  email: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  created_at: string | null;
+  is_me: boolean;
+}
+
 export interface ChangePasswordIn {
   current_password: string;
   new_password: string;
