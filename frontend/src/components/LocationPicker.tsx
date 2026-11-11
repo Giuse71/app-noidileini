@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
@@ -39,7 +39,16 @@ export default function LocationPicker({
   city: string;
   onChange: (lat: number | null, lng: number | null) => void;
 }) {
-  const pos: [number, number] | null = lat !== null && lng !== null ? [lat, lng] : null;
+  const pos = useMemo<[number, number] | null>(() => (lat !== null && lng !== null ? [lat, lng] : null), [lat, lng]);
+  const dragHandlers = useMemo(
+    () => ({
+      dragend: (e: L.LeafletEvent) => {
+        const p = (e.target as L.Marker).getLatLng();
+        onChange(p.lat, p.lng);
+      },
+    }),
+    [onChange],
+  );
   const find = useMutation({
     mutationFn: () => apiGet<GeocodeOut>(`/geocode?address=${encodeURIComponent(address)}&city=${encodeURIComponent(city)}`),
     onSuccess: (r) => (r.found ? onChange(r.lat, r.lng) : toast.error("Indirizzo non trovato: posiziona il segnaposto toccando la mappa")),
@@ -66,7 +75,7 @@ export default function LocationPicker({
               position={pos}
               icon={icon}
               draggable
-              eventHandlers={{ dragend: (e) => { const p = (e.target as L.Marker).getLatLng(); onChange(p.lat, p.lng); } }}
+              eventHandlers={dragHandlers}
             />
           )}
         </MapContainer>

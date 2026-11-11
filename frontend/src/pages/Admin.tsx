@@ -47,7 +47,7 @@ function Overview() {
   const tx = useAllTransactions();
   const { data: merchants = [] } = useMerchants();
   const athletes = useQuery({ queryKey: ["athletes", ""], queryFn: () => apiGet<Athlete[]>("/athletes?q=") });
-  const rows = tx.isError ? [] : (tx.data ?? []);
+  const rows = useMemo(() => (tx.isError ? [] : (tx.data ?? [])), [tx.data, tx.isError]);
   const t = totals(rows);
   const perMerchant = useMemo(() => {
     const map = new Map<string, { name: string; count: number; amount: number; discount: number }>();

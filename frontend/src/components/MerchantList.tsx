@@ -115,11 +115,14 @@ export default function MerchantList({ limit }: { limit?: number }) {
   const { data, isLoading, isError } = useMerchants();
   const [q, setQ] = useState("");
   const [sector, setSector] = useState("");
-  const merchants = isError ? [] : (data ?? []);
+  const merchants = useMemo(() => (isError ? [] : (data ?? [])), [data, isError]);
   const sectors = useMemo(() => [...new Set(merchants.map((m) => m.sector).filter(Boolean))].sort(), [merchants]);
-  const filtered = merchants
-    .filter((m) => (!sector || m.sector === sector) && `${m.business_name} ${m.sector}`.toLowerCase().includes(q.toLowerCase()))
-    .slice(0, limit);
+  const filtered = useMemo(() => {
+    const needle = q.toLowerCase();
+    return merchants
+      .filter((m) => (!sector || m.sector === sector) && `${m.business_name} ${m.sector}`.toLowerCase().includes(needle))
+      .slice(0, limit);
+  }, [merchants, sector, q, limit]);
 
   return (
     <div className="space-y-4">

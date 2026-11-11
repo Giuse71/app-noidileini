@@ -59,7 +59,7 @@ export default function PartnersMap() {
     );
   }
 
-  const list = me ? [...placed].sort((a, b) => km(me, [a.lat, a.lng]) - km(me, [b.lat, b.lng])) : placed;
+  const list = useMemo(() => (me ? [...placed].sort((a, b) => km(me, [a.lat, a.lng]) - km(me, [b.lat, b.lng])) : placed), [me, placed]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">

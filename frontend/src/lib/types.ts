@@ -122,6 +122,11 @@ export interface SetPasswordIn {
   password: string;
 }
 
+export interface ChangePasswordIn {
+  current_password: string;
+  new_password: string;
+}
+
 export interface InviteResult {
   sent_to: string;
   invited_at: string;

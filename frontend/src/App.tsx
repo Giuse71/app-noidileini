@@ -14,6 +14,9 @@ import MerchantHistory from "@/pages/MerchantHistory";
 import MerchantProfile from "@/pages/MerchantProfile";
 import Admin from "@/pages/Admin";
 
+// keeps toasts above the mobile bottom navigation
+const TOAST_MOBILE_OFFSET = { bottom: 88 };
+
 // One <Route> per page in src/pages; BrowserRouter already wraps this in main.tsx.
 export default function App() {
   return (
@@ -39,7 +42,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      <Toaster richColors mobileOffset={{ bottom: 88 }} />
+      <Toaster richColors mobileOffset={TOAST_MOBILE_OFFSET} />
     </>
   );
 }

@@ -19,6 +19,8 @@ const MERCHANT_NAV: NavItem[] = [
   { to: "/commerciante/profilo", label: "Attività", icon: Store, testid: "attivita" },
 ];
 
+const ADMIN_NAV: NavItem[] = [];
+
 function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
   const { data, isLoading, isError } = useMe();
   if (isLoading) {
@@ -56,7 +58,7 @@ export function MerchantLayout() {
 export function AdminLayout() {
   return (
     <RequireRole role="admin">
-      <AppShell nav={[]} roleLabel="Direttivo">
+      <AppShell nav={ADMIN_NAV} roleLabel="Direttivo">
         <Outlet />
       </AppShell>
     </RequireRole>

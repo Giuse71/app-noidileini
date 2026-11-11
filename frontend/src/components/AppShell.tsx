@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Crest from "@/components/Crest";
+import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import { endSession, useAssociation, useMe } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +68,7 @@ export default function AppShell({ nav, roleLabel, children }: { nav: NavItem[];
             <span className="hidden max-w-48 truncate text-sm text-muted-foreground lg:inline" data-testid="shell-user-email">
               {me?.user.email}
             </span>
+            <ChangePasswordDialog />
             <Button variant="ghost" size="sm" onClick={logout} data-testid="logout-button">
               <LogOut className="size-4" />
               <span className="hidden sm:inline">Esci</span>

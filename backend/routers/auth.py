@@ -2,7 +2,7 @@ import secrets
 import string
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from lib.auth import clear_session, current_user, hash_password, set_session, verify_password
 from lib.db import db
@@ -11,6 +11,7 @@ from lib.geocode import resolve_coords
 from routers.notify import announce_merchant, public_base, token_hash
 from models.schemas import (
     Athlete,
+    ChangePasswordIn,
     AthleteRegister,
     LoginIn,
     Me,
@@ -129,6 +130,18 @@ async def set_password(body: SetPasswordIn, request: Request, response: Response
     user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
     set_session(response, request, user["id"])
     return await build_me(user)
+
+
+@router.post("/change-password")
+async def change_password(body: ChangePasswordIn, user: dict = Depends(current_user)):
+    if not verify_password(body.current_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="La password attuale non è corretta")
+    if body.current_password == body.new_password:
+        raise HTTPException(status_code=400, detail="La nuova password deve essere diversa da quella attuale")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
+    # any pending invitation link must not be able to override the new password
+    await db.password_tokens.update_many({"user_id": user["id"], "used": False}, {"$set": {"used": True}})
+    return {"ok": True}
 
 
 @router.post("/logout")

@@ -44,3 +44,7 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 ## v5 additions
 - **Mappa convenzioni** (OpenStreetMap + Leaflet/react-leaflet, no key): MerchantUpdate.lat/lng. lib/geocode.py uses Nominatim (User-Agent, ≤1 req/s, cached in `geocodes`); resolve_coords on every merchant save keeps manual pins, re-geocodes when address changes and pin didn't. GET /geocode?address=&city= (merchant/admin). Athlete /atleta/convenzioni tab "Mappa": pins with discount, popups, "Vicino a me" (browser geolocation) sorts list by distance. Merchant/admin profile has LocationPicker (drag/click pin, "Trova dall'indirizzo").
 - **Valutazioni**: POST /transactions/{id}/rating {stars 1-5} by the owning athlete within 30 days (can change). Merchant.rating_avg / rating_count recomputed; average shown on merchant cards/map; merchant Storico shows per-sale stars + average. No comments.
+
+## v6
+- **Cambia password** (all roles: athlete, merchant, admin): header button "Password" → dialog. POST /auth/change-password {current_password, new_password ≥6}; wrong current → 400, same as current → 400, anonymous → 401; invalidates pending invite links.
+- Demo login buttons read from frontend/.env VITE_DEMO_LOGINS and render only in dev (import.meta.env.DEV).

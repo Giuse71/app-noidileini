@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Camera, CameraOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,19 +11,21 @@ export default function QrScanner({ onResult }: { onResult: (text: string) => vo
   const [active, setActive] = useState(false);
   const [error, setError] = useState("");
 
-  async function stop() {
+  // Only touches refs and a state setter, so it is stable across renders.
+  const stop = useCallback(async () => {
     const s = scanner.current;
     scanner.current = null;
     if (s) {
       try {
         if (s.isScanning) await s.stop();
         s.clear();
-      } catch {
-        /* already stopped */
+      } catch (err) {
+        // the camera may already be released (e.g. tab hidden); nothing to recover
+        console.warn("QR scanner stop:", err);
       }
     }
     setActive(false);
-  }
+  }, []);
 
   async function start() {
     setError("");
@@ -43,13 +45,15 @@ export default function QrScanner({ onResult }: { onResult: (text: string) => vo
         },
         () => undefined,
       );
-    } catch {
+    } catch (err) {
+      console.warn("QR scanner start:", err);
       setError("Fotocamera non disponibile o permesso negato. Usa il codice manuale.");
       await stop();
     }
   }
 
-  useEffect(() => () => void stop(), []);
+  // release the camera when leaving the page
+  useEffect(() => () => void stop(), [stop]);
 
   return (
     <div className="space-y-3">

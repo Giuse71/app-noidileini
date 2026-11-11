@@ -13,11 +13,25 @@ import { EMPTY_MERCHANT, errMsg } from "@/lib/format";
 import { beginSession, homeFor, useAssociation, useMe } from "@/lib/session";
 import type { AthleteRegister, Me, MerchantRegister } from "@/lib/types";
 
-const DEMO = [
-  { label: "Atleta di prova", email: "giulia.rossi@example.it", password: "Atleta2026!", testid: "demo-athlete" },
-  { label: "Commerciante", email: "pizzeria@example.it", password: "Negozio2026!", testid: "demo-merchant" },
-  { label: "Direttivo (admin)", email: "admin@leinivolley.it", password: "Admin2026!", testid: "demo-admin" },
-];
+interface DemoLogin {
+  label: string;
+  email: string;
+  password: string;
+  testid: string;
+}
+
+// Demo accounts come from frontend/.env and only exist in the dev preview:
+// in a production build `import.meta.env.DEV` is false and this branch is dropped.
+function loadDemoLogins(): DemoLogin[] {
+  if (!import.meta.env.DEV) return [];
+  try {
+    const parsed: unknown = JSON.parse(import.meta.env.VITE_DEMO_LOGINS ?? "[]");
+    return Array.isArray(parsed) ? (parsed as DemoLogin[]) : [];
+  } catch {
+    return [];
+  }
+}
+const DEMO = loadDemoLogins();
 
 function Credentials({ email, password, setEmail, setPassword, prefix }: { email: string; password: string; setEmail: (v: string) => void; setPassword: (v: string) => void; prefix: string }) {
   return (
@@ -118,7 +132,8 @@ export default function Login() {
                   {login.isPending && <Loader2 className="size-4 animate-spin" />} Accedi
                 </Button>
               </form>
-              <div className="rounded-xl border border-dashed p-4">
+              {DEMO.length > 0 && (
+              <div className="rounded-xl border border-dashed p-4" data-testid="demo-logins">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account dimostrativi</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {DEMO.map((d) => (
@@ -128,6 +143,7 @@ export default function Login() {
                   ))}
                 </div>
               </div>
+              )}
             </TabsContent>
 
             <TabsContent value="atleta" className="mt-6 space-y-6">
