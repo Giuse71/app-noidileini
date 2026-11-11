@@ -1,16 +1,21 @@
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BadgePercent, QrCode, ReceiptText } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import Crest from "@/components/Crest";
 import MerchantList from "@/components/MerchantList";
 import { homeFor, useAssociation, useMe } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { apiGet } from "@/lib/api";
+import type { EventPhoto } from "@/lib/types";
 
 const STEP_ICONS = [QrCode, BadgePercent, ReceiptText];
 
 export default function Landing() {
   const { data: assoc } = useAssociation();
   const { data: me } = useMe();
+  const photos = useQuery({ queryKey: ["event-photos", "public"], queryFn: () => apiGet<EventPhoto[]>("/event-photos") });
+  const strip = photos.isError ? [] : (photos.data ?? []);
   const steps = assoc
     ? [
         { title: assoc.step1_title, text: assoc.step1_text },
@@ -103,6 +108,26 @@ export default function Landing() {
             })}
           </div>
         </section>
+
+        {strip.length > 0 && (
+          <section data-testid="landing-event-strip">
+            <h2 className="text-2xl font-semibold tracking-tight">Partite ed eventi</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Gli ultimi momenti del Leinì Volley</p>
+            <div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 md:mx-0 md:px-0">
+              {strip.map((p, i) => (
+                <figure
+                  key={p.id}
+                  className="w-64 shrink-0 snap-start overflow-hidden rounded-xl border bg-card shadow-sm transition-transform duration-200 hover:-translate-y-1 md:w-72"
+                  style={{ transform: i % 2 ? "rotate(0.6deg)" : "rotate(-0.6deg)" }}
+                  data-testid={`landing-event-photo-${p.id}`}
+                >
+                  <img src={p.image} alt={p.caption || "Foto evento"} loading="lazy" className="aspect-[4/3] w-full object-cover" />
+                  {p.caption && <figcaption className="px-3 py-2 text-sm font-medium">{p.caption}</figcaption>}
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section>
           <div className="flex items-end justify-between gap-4">

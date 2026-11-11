@@ -65,3 +65,11 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - **Email Gmail**: env GMAIL_USER + GMAIL_APP_PASSWORD → lib/email.py sends via smtp.gmail.com:587 STARTTLS (html + plain text, Reply-To); otherwise Emergent managed email.
 - **Tessera offline**: queryClient networkMode offlineFirst; sw.js caches /api/auth/me, association, family, merchants, transactions/mine and posts {type:"lv-net", online} to pages. lib/offline.ts useOnline (navigator.onLine && SW) + useLastSync (localStorage "lv-card-updated", cleared at logout). AthleteCard shows badge (athlete-card-sync-badge) and family QR list (athlete-card-family-qr-*) opening the shared QR dialog. Offline only works on a production build (dev server adds ?t= to modules).
 - **Testi home modificabili**: Association has hero_image + home_badge/home_title/home_subtitle/step{1,2,3}_{title,text}/partners_title/partners_subtitle (defaults = original texts). Admin → Associazione fieldset "Testi e immagini della home page"; Landing reads them.
+
+## Notizie, galleria eventi, limiti immagini, test email
+- routers/board_content.py + models/board_content.py. Soft delete (is_deleted) for news and event photos.
+- **Notizie del club**: GET /api/news (athlete+admin only; merchant 403), POST /api/admin/news, DELETE /api/admin/news/{id}. AthleteCard shows latest 5 (athlete-news). Admin tab "Notizie e foto" (admin-tab-bacheca).
+- **Galleria eventi home**: GET /api/event-photos (public, latest 12), GET/POST /api/admin/event-photos, DELETE /api/admin/event-photos/{id}. Landing strip (landing-event-strip). Board uploads resized to 1600px.
+- **Limiti peso immagini**: env IMAGE_MAX_MB_MEMBERS (default 1) and IMAGE_MAX_MB_BOARD (default 5); save_image(board=True) for admin uploads (association, hero, event photos, admin-edited merchants). GET /api/upload-limits; ImageUpload/GalleryUpload reject heavier originals client-side and show "Max N MB".
+- **Email**: GET /api/admin/email/status (gmail|emergent), POST /api/admin/email/test {to}. EmailTestCard at top of Report mensili tab.
+- Gmail failures (bad app password / disconnect) fall back to Emergent email for normal sends; the admin test button uses gmail_only=True so it reports the real Gmail outcome. GMAIL_USER + GMAIL_APP_PASSWORD are set in preview but the saved app password is rejected by Google (needs a 16-letter app password).

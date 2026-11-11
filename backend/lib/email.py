@@ -132,18 +132,22 @@ def _assert_safe_email(subject: str, html: str) -> None:
                 raise ValueError(f"Anchor text {m.group(1)!r} ≠ real link host {real!r} (G3)")
 
 
-async def send_email(*, to: list[str], subject: str, html: str, reply_to: str | None = None) -> str | None:
+async def send_email(*, to: list[str], subject: str, html: str, reply_to: str | None = None,
+                     gmail_only: bool = False) -> str | None:
     """Recipients come from server-side records, html from server-side templates only."""
     _assert_safe_email(subject, html)
     if gmail_enabled():
         try:
             return await asyncio.to_thread(_send_gmail_sync, to, subject, html, reply_to or EMAIL_REPLY_TO)
-        except smtplib.SMTPAuthenticationError:
+        except (smtplib.SMTPAuthenticationError, smtplib.SMTPServerDisconnected):  # Gmail drops the line on a bad app password
             logger.error("Gmail login rejected: check GMAIL_USER / GMAIL_APP_PASSWORD")
-            raise EmailError("Accesso Gmail rifiutato: controlla la password per le app")
+            if gmail_only or not EMAIL_KEY:
+                raise EmailError("Accesso Gmail rifiutato: controlla la password per le app")
         except Exception as e:  # noqa: BLE001
             logger.error("Gmail send error: %s", type(e).__name__)
-            raise EmailError("Errore di invio Gmail")
+            if gmail_only or not EMAIL_KEY:
+                raise EmailError("Errore di invio Gmail")
+        logger.warning("Gmail failed, falling back to Emergent email")
     payload = {"to": to, "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
     if reply_to or EMAIL_REPLY_TO:
         payload["contact_email"] = reply_to or EMAIL_REPLY_TO

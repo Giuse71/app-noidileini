@@ -30,6 +30,10 @@ services:
         value: Leinì Volley
       - key: UPLOAD_DIR
         value: /var/data/uploads
+      - key: IMAGE_MAX_MB_MEMBERS
+        value: "1" # athletes, families, merchants
+      - key: IMAGE_MAX_MB_BOARD
+        value: "5" # board / admin
       - key: GMAIL_USER
         sync: false # your Gmail address
       - key: GMAIL_APP_PASSWORD

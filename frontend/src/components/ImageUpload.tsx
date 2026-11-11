@@ -3,6 +3,7 @@ import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fileToDataUrl } from "@/lib/format";
+import { tooHeavy, useImageLimitMb } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 export default function ImageUpload({
@@ -12,6 +13,7 @@ export default function ImageUpload({
   testid,
   round = false,
   placeholder,
+  maxPx,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -19,8 +21,11 @@ export default function ImageUpload({
   testid: string;
   round?: boolean;
   placeholder?: string;
+  /** longest side after resize; default keeps small profile-sized images */
+  maxPx?: number;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const limitMb = useImageLimitMb();
   const [busy, setBusy] = useState(false);
 
   async function handle(file: File | undefined) {
@@ -29,9 +34,14 @@ export default function ImageUpload({
       toast.error("Seleziona un file immagine");
       return;
     }
+    if (tooHeavy(file, limitMb)) {
+      toast.error(`Immagine troppo pesante: massimo ${limitMb} MB`);
+      if (input.current) input.current.value = "";
+      return;
+    }
     setBusy(true);
     try {
-      onChange(await fileToDataUrl(file));
+      onChange(await fileToDataUrl(file, maxPx));
     } catch {
       toast.error("Immagine non leggibile");
     } finally {
@@ -69,6 +79,7 @@ export default function ImageUpload({
             </Button>
           )}
         </div>
+        <p className="text-[11px] text-muted-foreground" data-testid={`${testid}-limit`}>Max {limitMb} MB</p>
         <input
           ref={input}
           type="file"

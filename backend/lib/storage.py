@@ -28,7 +28,18 @@ STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 APP_NAME = "noi-di-leyni"
-MAX_BYTES = 1_500_000
+
+
+def _mb(name: str, default: float) -> float:
+    try:
+        return max(0.1, float(os.environ.get(name) or default))
+    except ValueError:
+        return default
+
+
+# Upload weight limits (MB), changeable from the hosting environment without touching code.
+MEMBER_MAX_MB = _mb("IMAGE_MAX_MB_MEMBERS", 1)  # athletes, families, merchants
+BOARD_MAX_MB = _mb("IMAGE_MAX_MB_BOARD", 5)  # board / admin uploads
 EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 DATA_URL = re.compile(r"^data:(image/(?:jpeg|jpg|png|webp|gif));base64,(.+)$", re.S)
 FILE_REF = "/api/files/"
@@ -88,7 +99,7 @@ def get_object(path: str) -> tuple[bytes, str]:
 
 
 async def save_image(value: Optional[str], *, kind: str, owner_user_id: Optional[str], public: bool,
-                     old: Optional[str] = None) -> Optional[str]:
+                     old: Optional[str] = None, board: bool = False) -> Optional[str]:
     """Upload a data-URL image and return its /api/files ref; pass through refs/URLs/None.
     Soft-deletes the previous stored file when it is replaced or removed."""
     new = value
@@ -101,8 +112,9 @@ async def save_image(value: Optional[str], *, kind: str, owner_user_id: Optional
             data = base64.b64decode(m.group(2), validate=True)
         except (binascii.Error, ValueError):
             raise HTTPException(status_code=400, detail="Immagine non valida")
-        if len(data) > MAX_BYTES:
-            raise HTTPException(status_code=413, detail="Immagine troppo grande (max 1,5 MB)")
+        limit_mb = BOARD_MAX_MB if board else MEMBER_MAX_MB
+        if len(data) > limit_mb * 1_000_000:
+            raise HTTPException(status_code=413, detail=f"Immagine troppo grande (max {limit_mb:g} MB)")
         fid = str(uuid.uuid4())
         path = f"{APP_NAME}/{kind}/{owner_user_id or 'club'}/{fid}.{EXT[ctype]}"
         try:
@@ -128,8 +140,9 @@ async def discard(ref: Optional[str]) -> None:
         await db.files.update_one({"id": ref[len(FILE_REF):]}, {"$set": {"is_deleted": True, "deleted_at": now_utc()}})
 
 
-async def save_gallery(items: list[str], *, owner_user_id: str, old: Optional[list[str]] = None) -> list[str]:
-    out = [await save_image(v, kind="gallery", owner_user_id=owner_user_id, public=True) for v in items if v]
+async def save_gallery(items: list[str], *, owner_user_id: str, old: Optional[list[str]] = None,
+                       board: bool = False) -> list[str]:
+    out = [await save_image(v, kind="gallery", owner_user_id=owner_user_id, public=True, board=board) for v in items if v]
     for ref in old or []:
         if ref not in out:
             await discard(ref)

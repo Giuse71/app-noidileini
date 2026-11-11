@@ -179,8 +179,8 @@ async def admin_create_merchant(body: AdminMerchantSave, request: Request, backg
     password = body.new_password or secrets.token_urlsafe(24)
     await db.users.insert_one({"id": uid, "email": email, "password_hash": hash_password(password),
                                "role": "merchant", "created_at": now_utc()})
-    logo = await save_image(body.logo, kind="merchants", owner_user_id=uid, public=True)
-    gallery = await save_gallery(body.gallery, owner_user_id=uid)
+    logo = await save_image(body.logo, kind="merchants", owner_user_id=uid, public=True, board=True)
+    gallery = await save_gallery(body.gallery, owner_user_id=uid, board=True)
     profile = await resolve_coords({**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery}, None)
     doc = {**profile, "published": body.published,
            "id": new_id(), "user_id": uid, "created_at": now_utc()}
@@ -203,8 +203,8 @@ async def admin_update_merchant(id: str, body: AdminMerchantSave, request: Reque
     if body.new_password:
         user_set["password_hash"] = hash_password(body.new_password)
     await db.users.update_one({"id": doc["user_id"]}, {"$set": user_set})
-    logo = await save_image(body.logo, kind="merchants", owner_user_id=doc["user_id"], public=True, old=doc.get("logo"))
-    gallery = await save_gallery(body.gallery, owner_user_id=doc["user_id"], old=doc.get("gallery"))
+    logo = await save_image(body.logo, kind="merchants", owner_user_id=doc["user_id"], public=True, old=doc.get("logo"), board=True)
+    gallery = await save_gallery(body.gallery, owner_user_id=doc["user_id"], old=doc.get("gallery"), board=True)
     update = await resolve_coords(
         {**MerchantUpdate(**body.model_dump()).model_dump(), "logo": logo, "gallery": gallery, "published": body.published}, doc)
     doc = await db.merchants.find_one_and_update({"id": id}, {"$set": update}, projection={"_id": 0}, return_document=True)

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, CloudOff, Maximize2, PiggyBank, Receipt, RefreshCw, Sparkles, Users } from "lucide-react";
+import { ArrowRight, CloudOff, Megaphone, Maximize2, PiggyBank, Receipt, RefreshCw, Sparkles, Users } from "lucide-react";
 import InstallCard from "@/components/InstallCard";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,10 +10,10 @@ import Crest from "@/components/Crest";
 import MerchantList from "@/components/MerchantList";
 import StatCard from "@/components/StatCard";
 import { apiGet } from "@/lib/api";
-import { eur, initials, pct, totals } from "@/lib/format";
+import { dateTime, eur, initials, pct, totals } from "@/lib/format";
 import { syncLabel, useLastSync, useOnline } from "@/lib/offline";
 import { useAssociation, useMe, useMerchants } from "@/lib/session";
-import type { FamilyMember, Transaction } from "@/lib/types";
+import type { ClubNews, FamilyMember, Transaction } from "@/lib/types";
 
 interface QrTarget {
   name: string;
@@ -27,6 +27,7 @@ export default function AthleteCard() {
   const tx = useQuery({ queryKey: ["transactions", "mine"], queryFn: () => apiGet<Transaction[]>("/transactions/mine") });
   // same key as the family page, so the service worker keeps family QR codes for offline use
   const family = useQuery({ queryKey: ["family"], queryFn: () => apiGet<FamilyMember[]>("/athletes/me/family") });
+  const news = useQuery({ queryKey: ["news"], queryFn: () => apiGet<ClubNews[]>("/news") });
   const online = useOnline();
   const lastSync = useLastSync(dataUpdatedAt, online);
   const [big, setBig] = useState<QrTarget | null>(null);
@@ -137,6 +138,22 @@ export default function AthleteCard() {
       </section>
 
       <section className="space-y-6">
+        {(news.data?.length ?? 0) > 0 && !news.isError && (
+          <div className="animate-fade-up rounded-2xl border bg-card p-4" data-testid="athlete-news">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-primary">
+              <Megaphone className="size-4" /> Notizie dal club
+            </p>
+            <ul className="mt-3 space-y-3">
+              {news.data?.slice(0, 5).map((n) => (
+                <li key={n.id} className="border-l-2 border-gold pl-3" data-testid={`athlete-news-${n.id}`}>
+                  <p className="font-semibold">{n.title}</p>
+                  <p className="whitespace-pre-line text-sm text-muted-foreground">{n.body}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{dateTime(n.created_at)}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {promos.length > 0 && (
           <div className="animate-fade-up rounded-2xl border border-gold/50 bg-gold-soft p-4" data-testid="athlete-promos">
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gold-ink">

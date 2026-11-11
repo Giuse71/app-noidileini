@@ -7,7 +7,7 @@ from pydantic import BaseModel, EmailStr, Field, model_validator
 from lib.dates import today_iso
 
 Role = Literal["athlete", "merchant", "admin"]
-IMG_MAX = 2_000_000  # data-url length cap (~1.5MB image)
+IMG_MAX = 30_000_000  # data-url length sanity cap; real weight limits live in lib/storage (env-configurable)
 GALLERY_MAX = 6
 DATE_RX = r"^(\d{4}-\d{2}-\d{2})?$"
 

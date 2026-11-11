@@ -3,17 +3,22 @@ import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fileToDataUrl } from "@/lib/format";
+import { tooHeavy, useImageLimitMb } from "@/lib/session";
 
 export const GALLERY_MAX = 6;
 
 export default function GalleryUpload({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const limitMb = useImageLimitMb();
 
   async function add(files: FileList | null) {
     if (!files?.length) return;
     const room = GALLERY_MAX - value.length;
-    const picked = Array.from(files).filter((f) => f.type.startsWith("image/")).slice(0, room);
+    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const light = images.filter((f) => !tooHeavy(f, limitMb));
+    if (light.length < images.length) toast.error(`Scartate ${images.length - light.length} foto oltre ${limitMb} MB`);
+    const picked = light.slice(0, room);
     if (files.length > room) toast.info(`Massimo ${GALLERY_MAX} foto: aggiunte le prime ${room}`);
     setBusy(true);
     try {
@@ -31,7 +36,7 @@ export default function GalleryUpload({ value, onChange }: { value: string[]; on
     <div className="space-y-2" data-testid="merchant-gallery">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">
-          Foto del negozio <span className="text-muted-foreground">({value.length}/{GALLERY_MAX})</span>
+          Foto del negozio <span className="text-muted-foreground">({value.length}/{GALLERY_MAX} · max {limitMb} MB l'una)</span>
         </p>
         <Button type="button" variant="outline" size="sm" disabled={busy || value.length >= GALLERY_MAX} onClick={() => input.current?.click()} data-testid="merchant-gallery-add">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />} Aggiungi foto

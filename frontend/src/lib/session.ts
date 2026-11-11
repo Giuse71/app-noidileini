@@ -2,7 +2,7 @@ import { LAST_SYNC_KEY } from "@/lib/offline";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPost } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import type { Association, Category, Me, Merchant, Role } from "@/lib/types";
+import type { Association, Category, Me, Merchant, Role, UploadLimits } from "@/lib/types";
 
 export const ME_KEY = ["me"] as const;
 
@@ -48,4 +48,16 @@ export function useCategories() {
 
 export function useMerchants() {
   return useQuery({ queryKey: ["merchants"], queryFn: () => apiGet<Merchant[]>("/merchants") });
+}
+
+/** Max weight (MB) of a picked image: board limit for admins, member limit for everyone else. */
+export function useImageLimitMb(): number {
+  const { data: me } = useMe();
+  const limits = useQuery({ queryKey: ["upload-limits"], queryFn: () => apiGet<UploadLimits>("/upload-limits"), staleTime: 10 * 60_000 });
+  const l = limits.data ?? { member_mb: 1, board_mb: 5 };
+  return me?.user.role === "admin" ? l.board_mb : l.member_mb;
+}
+
+export function tooHeavy(file: File, limitMb: number): boolean {
+  return file.size > limitMb * 1_000_000;
 }

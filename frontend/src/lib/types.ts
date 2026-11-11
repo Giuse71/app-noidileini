@@ -267,3 +267,40 @@ export interface Transaction {
   rating: number | null;
   created_at: string;
 }
+
+export interface ClubNewsIn {
+  title: string;
+  body: string;
+}
+
+export interface ClubNews extends ClubNewsIn {
+  id: string;
+  created_at: string;
+}
+
+export interface EventPhotoIn {
+  image: string;
+  caption: string;
+}
+
+export interface EventPhoto {
+  id: string;
+  image: string;
+  caption: string;
+  created_at: string;
+}
+
+export interface UploadLimits {
+  member_mb: number;
+  board_mb: number;
+}
+
+export interface EmailStatus {
+  provider: "gmail" | "emergent";
+  sender: string | null;
+}
+
+export interface EmailTestResult {
+  ok: boolean;
+  provider: "gmail" | "emergent";
+}

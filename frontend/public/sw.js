@@ -3,7 +3,7 @@
 const CACHE = "lv-cache";
 const API_ALLOW = [
   "/api/auth/me", "/api/association", "/api/athletes/me/family", "/api/merchants", "/api/transactions/mine",
-  "/api/categories", "/api/manifest.webmanifest",
+  "/api/categories", "/api/manifest.webmanifest", "/api/news", "/api/upload-limits",
 ];
 
 self.addEventListener("install", () => self.skipWaiting());
