@@ -269,6 +269,9 @@ function AssociationForm({ initial }: { initial: Association }) {
       }}
     >
       <ImageUpload value={form.logo} onChange={(v) => set("logo", v)} label="Logo dell'associazione" testid="association-logo" />
+      <p className="-mt-3 text-xs text-muted-foreground" data-testid="association-logo-icon-hint">
+        Il logo viene usato anche come icona dell'app sul telefono e nella scheda del browser.
+      </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {text("name", "Nome associazione")}
         {text("email", "Email")}
