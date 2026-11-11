@@ -1,0 +1,52 @@
+# Render Blueprint: two web services. The browser only talks to "noi-leyni-web";
+# its /api proxy forwards to the backend over Render's private network (same-origin cookies).
+services:
+  - type: web
+    name: noi-leyni-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: MONGO_URL
+        sync: false # MongoDB Atlas connection string
+      - key: DB_NAME
+        value: noi_di_leyni
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false # public URL of noi-leyni-web, e.g. https://app.tuodominio.it
+      - key: APP_URL
+        sync: false # same public URL, used in email links
+      - key: EMAIL_FROM_NAME
+        value: Leinì Volley
+      - key: EMERGENT_EMAIL_KEY
+        sync: false
+      - key: EMERGENT_LLM_KEY
+        sync: false
+      - key: WEBHOOK_CRON_SECRET
+        generateValue: true
+
+  - type: web
+    name: noi-leyni-web
+    runtime: node
+    rootDir: frontend
+    buildCommand: yarn install --frozen-lockfile --production=false && yarn build
+    startCommand: yarn start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: DISABLE_VISUAL_EDITS
+        value: "true"
+      - key: DISABLE_EMERGENT_OVERLAY
+        value: "true"
+      - key: DISABLE_HOT_RELOAD
+        value: "true"
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: noi-leyni-api
+          property: hostport

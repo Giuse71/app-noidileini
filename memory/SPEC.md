@@ -53,3 +53,9 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 ## v7
 - **Password dimenticata**: /login "Password dimenticata?" → POST /auth/forgot-password {email} always 200 (no enumeration); if account exists & non-demo, background email with 60-min single-use link to /imposta-password (throttled: 1 link per 2 min). Older unused links revoked.
 - **Direttivo**: admin tab "Direttivo": GET/POST /admin/admins (add by email → admin user + 7-day set-password invite), POST /admin/admins/{id}/invite, DELETE /admin/admins/{id} (not self, not last admin). All admins have full panel rights.
+
+## Hosting esterno (Render)
+- frontend/package.json `start` = `vite preview` on $PORT (vite.config preview block), proxying /api to BACKEND_URL (bare host:port accepted) → same-origin cookies. engines node >=22.12.
+- render.yaml blueprint: noi-leyni-api (python, uvicorn on $PORT, health /api/) + noi-leyni-web (node, build `yarn build`, start `yarn start`, BACKEND_URL from api hostport).
+- emergentintegrations removed from requirements.txt (unused; only on Emergent's private index). lib/email.py tolerates a missing key.
+- Not portable: .emergent/crons.yml (needs Render Cron Job), Emergent email/storage keys.

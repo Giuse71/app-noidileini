@@ -33,6 +33,12 @@ if (!hotReloadDisabled) {
   process.env.CHOKIDAR_USEPOLLING = "true";
 }
 
+// Backend address for the /api proxy: localhost in the pod, BACKEND_URL on external hosts
+// (e.g. Render, where it may arrive as a bare "host:port" from the private network).
+const rawBackend = process.env.BACKEND_URL?.trim() || "http://localhost:8001";
+const backendTarget = /^https?:\/\//.test(rawBackend) ? rawBackend : `http://${rawBackend}`;
+const apiProxy = { "/api": { target: backendTarget, changeOrigin: true } };
+
 // https://vite.dev/config/
 export default defineConfig(async () => {
   const emergentOverlay = await loadEmergentOverlay();
@@ -101,12 +107,16 @@ export default defineConfig(async () => {
       watch: hotReloadDisabled ? null : { usePolling: true, interval: 300 },
       // The /api proxy convention: frontend code calls relative /api/*, never an
       // absolute backend URL. Target is the FastAPI dev server (supervisor: backend).
-      proxy: {
-        "/api": {
-          target: "http://localhost:8001",
-          changeOrigin: true,
-        },
-      },
+      proxy: apiProxy,
+    },
+    // `yarn start` (production): serves the built dist/ on $PORT with the same /api proxy,
+    // so the browser stays same-origin and the session cookie keeps working.
+    preview: {
+      host: "0.0.0.0",
+      port: Number(process.env.PORT) || 3000,
+      strictPort: true,
+      allowedHosts: true,
+      proxy: apiProxy,
     },
   } satisfies UserConfig;
 });
