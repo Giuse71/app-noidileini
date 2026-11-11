@@ -59,3 +59,9 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - render.yaml blueprint: noi-leyni-api (python, uvicorn on $PORT, health /api/) + noi-leyni-web (node, build `yarn build`, start `yarn start`, BACKEND_URL from api hostport).
 - emergentintegrations removed from requirements.txt (unused; only on Emergent's private index). lib/email.py tolerates a missing key.
 - Not portable: .emergent/crons.yml (needs Render Cron Job), Emergent email/storage keys.
+
+## Fuori da Emergent (automatico se configurato)
+- **Foto/loghi su cartella server**: env UPLOAD_DIR → lib/storage.py writes/reads files under that folder (path-traversal guarded); otherwise Emergent object storage. render.yaml mounts a disk at /var/data (UPLOAD_DIR=/var/data/uploads).
+- **Email Gmail**: env GMAIL_USER + GMAIL_APP_PASSWORD → lib/email.py sends via smtp.gmail.com:587 STARTTLS (html + plain text, Reply-To); otherwise Emergent managed email.
+- **Tessera offline**: queryClient networkMode offlineFirst; sw.js caches /api/auth/me, association, family, merchants, transactions/mine and posts {type:"lv-net", online} to pages. lib/offline.ts useOnline (navigator.onLine && SW) + useLastSync (localStorage "lv-card-updated", cleared at logout). AthleteCard shows badge (athlete-card-sync-badge) and family QR list (athlete-card-family-qr-*) opening the shared QR dialog. Offline only works on a production build (dev server adds ?t= to modules).
+- **Testi home modificabili**: Association has hero_image + home_badge/home_title/home_subtitle/step{1,2,3}_{title,text}/partners_title/partners_subtitle (defaults = original texts). Admin → Associazione fieldset "Testi e immagini della home page"; Landing reads them.

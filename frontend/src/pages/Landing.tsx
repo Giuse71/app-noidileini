@@ -6,15 +6,18 @@ import MerchantList from "@/components/MerchantList";
 import { homeFor, useAssociation, useMe } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-const STEPS = [
-  { icon: QrCode, title: "L'atleta mostra la tessera", text: "Ogni tesserato ha un QR personale nella propria area riservata." },
-  { icon: BadgePercent, title: "Il commerciante applica lo sconto", text: "Scansiona il codice, inserisce l'importo: lo sconto della convenzione si calcola da solo." },
-  { icon: ReceiptText, title: "Tutto resta tracciato", text: "Ogni transazione è registrata: l'associazione vede i benefici generati dagli sponsor." },
-];
+const STEP_ICONS = [QrCode, BadgePercent, ReceiptText];
 
 export default function Landing() {
   const { data: assoc } = useAssociation();
   const { data: me } = useMe();
+  const steps = assoc
+    ? [
+        { title: assoc.step1_title, text: assoc.step1_text },
+        { title: assoc.step2_title, text: assoc.step2_text },
+        { title: assoc.step3_title, text: assoc.step3_text },
+      ].filter((s) => s.title || s.text)
+    : [];
 
   return (
     <div className="min-h-dvh bg-background">
@@ -42,12 +45,16 @@ export default function Landing() {
 
           <div className="mt-14 grid items-center gap-10 md:mt-20 md:grid-cols-[1.3fr_1fr]">
             <div className="animate-fade-up">
-              <p className="inline-flex rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wider text-navy">Convenzione Sponsor</p>
-              <h1 className="mt-5 text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl">
-                App Noi di Leyni
+              {assoc?.home_badge && (
+                <p className="inline-flex rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wider text-navy" data-testid="landing-badge">
+                  {assoc.home_badge}
+                </p>
+              )}
+              <h1 className="mt-5 whitespace-pre-line text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl" data-testid="landing-title">
+                {assoc?.home_title ?? "App Noi di Leyni"}
               </h1>
-              <p className="mt-5 max-w-xl text-base text-blue-100 md:text-lg">
-                La tessera digitale del Leinì Volley: atleti e famiglie risparmiano nei negozi partner, i commercianti sostengono la squadra e ogni sconto resta tracciato.
+              <p className="mt-5 max-w-xl whitespace-pre-line text-base text-blue-100 md:text-lg" data-testid="landing-subtitle">
+                {assoc?.home_subtitle}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/login?tab=atleta" className={cn(buttonVariants({ size: "lg" }), "bg-gold text-navy hover:bg-gold/90")} data-testid="landing-register-athlete">
@@ -63,9 +70,13 @@ export default function Landing() {
               </div>
             </div>
             <div className="relative mx-auto hidden w-full max-w-xs md:block">
-              <div className="rotate-3 rounded-2xl bg-white p-6 shadow-2xl">
-                <Crest logo={assoc?.logo} className="mx-auto size-48" />
-              </div>
+              {assoc?.hero_image ? (
+                <img src={assoc.hero_image} alt="" className="aspect-square w-full rotate-3 rounded-2xl object-cover shadow-2xl" data-testid="landing-hero-image" />
+              ) : (
+                <div className="rotate-3 rounded-2xl bg-white p-6 shadow-2xl">
+                  <Crest logo={assoc?.logo} className="mx-auto size-48" />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -75,26 +86,29 @@ export default function Landing() {
         <section>
           <h2 className="text-2xl font-semibold tracking-tight">Come funziona</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <div key={s.title} className="animate-fade-up rounded-xl border bg-card p-5" style={{ animationDelay: `${i * 80}ms` }}>
+            {steps.map((s, i) => {
+              const Icon = STEP_ICONS[i] ?? QrCode;
+              return (
+              <div key={i} className="animate-fade-up rounded-xl border bg-card p-5" style={{ animationDelay: `${i * 80}ms` }} data-testid={`landing-step-${i + 1}`}>
                 <div className="flex items-center gap-3">
                   <span className="grid size-10 place-items-center rounded-lg bg-accent text-primary">
-                    <s.icon className="size-5" />
+                    <Icon className="size-5" />
                   </span>
                   <span className="text-xs font-bold text-gold-ink">0{i + 1}</span>
                 </div>
                 <h3 className="mt-4 font-semibold">{s.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{s.text}</p>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <section>
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight">I nostri partner</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Attività di Leinì che sostengono la pallavolo locale</p>
+              <h2 className="text-2xl font-semibold tracking-tight" data-testid="landing-partners-title">{assoc?.partners_title ?? "I nostri partner"}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{assoc?.partners_subtitle}</p>
             </div>
           </div>
           <div className="mt-6">

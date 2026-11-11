@@ -8,6 +8,11 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/
+    # persistent folder for logos/photos (UPLOAD_DIR); Render disks need a paid instance
+    disk:
+      name: uploads
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.11
@@ -23,10 +28,12 @@ services:
         sync: false # same public URL, used in email links
       - key: EMAIL_FROM_NAME
         value: Leinì Volley
-      - key: EMERGENT_EMAIL_KEY
-        sync: false
-      - key: EMERGENT_LLM_KEY
-        sync: false
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: GMAIL_USER
+        sync: false # your Gmail address
+      - key: GMAIL_APP_PASSWORD
+        sync: false # Google "App password" (16 characters, needs 2-step verification)
       - key: WEBHOOK_CRON_SECRET
         generateValue: true
 

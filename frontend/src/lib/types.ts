@@ -13,6 +13,18 @@ export interface Association {
   website: string;
   description: string;
   convention_rules: string;
+  hero_image: string | null;
+  home_badge: string;
+  home_title: string;
+  home_subtitle: string;
+  step1_title: string;
+  step1_text: string;
+  step2_title: string;
+  step2_text: string;
+  step3_title: string;
+  step3_text: string;
+  partners_title: string;
+  partners_subtitle: string;
 }
 
 export interface Category {

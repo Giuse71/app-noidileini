@@ -1,9 +1,14 @@
-"""Emergent managed email (Resend) — send helper + guardrail gate (from the integration playbook)."""
+"""Email: Gmail SMTP when GMAIL_USER + GMAIL_APP_PASSWORD are set, else Emergent managed email (Resend) — send helper + guardrail gate (from the integration playbook)."""
 
+import asyncio
 import ipaddress
 import logging
 import os
 import re
+import smtplib
+import ssl
+from email.message import EmailMessage
+from email.utils import formataddr, make_msgid
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
@@ -16,6 +21,38 @@ EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY", "")  # missing key → sends fail, app still boots
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "Leinì Volley")
 EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO")
+# Own Gmail account (Google "App password", 2-step verification required). Used automatically when both are set.
+GMAIL_USER = (os.environ.get("GMAIL_USER") or "").strip()
+GMAIL_APP_PASSWORD = (os.environ.get("GMAIL_APP_PASSWORD") or "").replace(" ", "")
+
+
+def gmail_enabled() -> bool:
+    return bool(GMAIL_USER and GMAIL_APP_PASSWORD)
+
+
+def _plain_text(html: str) -> str:
+    text = re.sub(r"<(br|/p|/div|/h[1-6]|/li|/tr)[^>]*>", "\n", html, flags=re.I)
+    text = re.sub(r"<[^>]+>", "", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def _send_gmail_sync(to: list[str], subject: str, html: str, reply_to: str | None) -> str:
+    msg = EmailMessage()
+    msg["From"] = formataddr((EMAIL_FROM_NAME, GMAIL_USER))
+    msg["To"] = ", ".join(to)
+    msg["Subject"] = subject
+    msg["Message-ID"] = make_msgid(domain=GMAIL_USER.split("@")[-1])
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.set_content(_plain_text(html))
+    msg.add_alternative(html, subtype="html")
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as smtp:
+        smtp.ehlo()
+        smtp.starttls(context=ssl.create_default_context())
+        smtp.ehlo()
+        smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        smtp.send_message(msg)
+    return msg["Message-ID"]
 
 
 class EmailError(Exception):
@@ -98,6 +135,15 @@ def _assert_safe_email(subject: str, html: str) -> None:
 async def send_email(*, to: list[str], subject: str, html: str, reply_to: str | None = None) -> str | None:
     """Recipients come from server-side records, html from server-side templates only."""
     _assert_safe_email(subject, html)
+    if gmail_enabled():
+        try:
+            return await asyncio.to_thread(_send_gmail_sync, to, subject, html, reply_to or EMAIL_REPLY_TO)
+        except smtplib.SMTPAuthenticationError:
+            logger.error("Gmail login rejected: check GMAIL_USER / GMAIL_APP_PASSWORD")
+            raise EmailError("Accesso Gmail rifiutato: controlla la password per le app")
+        except Exception as e:  # noqa: BLE001
+            logger.error("Gmail send error: %s", type(e).__name__)
+            raise EmailError("Errore di invio Gmail")
     payload = {"to": to, "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
     if reply_to or EMAIL_REPLY_TO:
         payload["contact_email"] = reply_to or EMAIL_REPLY_TO

@@ -21,8 +21,9 @@ async def get_association():
 
 @router.put("/association", response_model=Association, dependencies=[Depends(admin_only)])
 async def update_association(body: Association):
-    current = await db.association.find_one({"id": "main"}, {"logo": 1}) or {}
+    current = await db.association.find_one({"id": "main"}, {"logo": 1, "hero_image": 1}) or {}
     body.logo = await save_image(body.logo, kind="association", owner_user_id=None, public=True, old=current.get("logo"))
+    body.hero_image = await save_image(body.hero_image, kind="site", owner_user_id=None, public=True, old=current.get("hero_image"))
     await db.association.update_one({"id": "main"}, {"$set": body.model_dump()}, upsert=True)
     return body
 

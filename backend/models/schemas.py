@@ -33,6 +33,20 @@ class Association(BaseModel):
     website: str = ""
     description: str = ""
     convention_rules: str = ""
+    # editable home page content (Admin → Associazione → Testi della home)
+    hero_image: Optional[str] = Field(default=None, max_length=IMG_MAX)
+    home_badge: str = "Convenzione Sponsor"
+    home_title: str = "App Noi di Leyni"
+    home_subtitle: str = ("La tessera digitale del Leinì Volley: atleti e famiglie risparmiano nei negozi partner, "
+                          "i commercianti sostengono la squadra e ogni sconto resta tracciato.")
+    step1_title: str = "L'atleta mostra la tessera"
+    step1_text: str = "Ogni tesserato ha un QR personale nella propria area riservata."
+    step2_title: str = "Il commerciante applica lo sconto"
+    step2_text: str = "Scansiona il codice, inserisce l'importo: lo sconto della convenzione si calcola da solo."
+    step3_title: str = "Tutto resta tracciato"
+    step3_text: str = "Ogni transazione è registrata: l'associazione vede i benefici generati dagli sponsor."
+    partners_title: str = "I nostri partner"
+    partners_subtitle: str = "Attività di Leinì che sostengono la pallavolo locale"
 
 
 # ---------- categories ----------

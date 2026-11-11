@@ -1,3 +1,4 @@
+import { LAST_SYNC_KEY } from "@/lib/offline";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPost } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -24,6 +25,7 @@ export function beginSession(me: Me) {
 export async function endSession() {
   await apiPost("/auth/logout").catch(() => undefined);
   if ("caches" in window) await caches.delete("lv-cache").catch(() => undefined);
+  localStorage.removeItem(LAST_SYNC_KEY);
   queryClient.clear();
   queryClient.setQueryData(ME_KEY, null);
 }

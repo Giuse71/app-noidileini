@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, Maximize2, PiggyBank, Receipt, Sparkles, Users } from "lucide-react";
+import { ArrowRight, CloudOff, Maximize2, PiggyBank, Receipt, RefreshCw, Sparkles, Users } from "lucide-react";
 import InstallCard from "@/components/InstallCard";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,19 +11,32 @@ import MerchantList from "@/components/MerchantList";
 import StatCard from "@/components/StatCard";
 import { apiGet } from "@/lib/api";
 import { eur, initials, pct, totals } from "@/lib/format";
+import { syncLabel, useLastSync, useOnline } from "@/lib/offline";
 import { useAssociation, useMe, useMerchants } from "@/lib/session";
-import type { Transaction } from "@/lib/types";
+import type { FamilyMember, Transaction } from "@/lib/types";
+
+interface QrTarget {
+  name: string;
+  sub: string;
+  code: string;
+}
 
 export default function AthleteCard() {
-  const { data: me } = useMe();
+  const { data: me, dataUpdatedAt } = useMe();
   const { data: assoc } = useAssociation();
   const tx = useQuery({ queryKey: ["transactions", "mine"], queryFn: () => apiGet<Transaction[]>("/transactions/mine") });
-  const [big, setBig] = useState(false);
+  // same key as the family page, so the service worker keeps family QR codes for offline use
+  const family = useQuery({ queryKey: ["family"], queryFn: () => apiGet<FamilyMember[]>("/athletes/me/family") });
+  const online = useOnline();
+  const lastSync = useLastSync(dataUpdatedAt, online);
+  const [big, setBig] = useState<QrTarget | null>(null);
   const merchants = useMerchants();
   const promos = (merchants.isError ? [] : (merchants.data ?? [])).filter((m) => m.promo_active);
   const a = me?.athlete;
   if (!a) return null;
   const t = totals(tx.isError ? [] : (tx.data ?? []));
+  const relatives = family.isError ? [] : (family.data ?? []);
+  const self: QrTarget = { name: `${a.first_name} ${a.last_name}`, sub: a.category_name || "Atleta", code: a.code };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[420px_1fr]">
@@ -58,7 +71,7 @@ export default function AthleteCard() {
           </div>
           <button
             type="button"
-            onClick={() => setBig(true)}
+            onClick={() => setBig(self)}
             className="relative mt-6 flex w-full items-center gap-4 rounded-xl bg-white p-3 text-left text-navy transition-transform duration-200 hover:scale-[1.01]"
             data-testid="athlete-qr-open-button"
           >
@@ -70,6 +83,38 @@ export default function AthleteCard() {
             <Maximize2 className="ml-auto size-5 text-primary" />
           </button>
         </div>
+        <div
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${online ? "bg-accent text-primary" : "bg-gold-soft text-gold-ink"}`}
+          role="status"
+          data-testid="athlete-card-sync-badge"
+        >
+          {online ? <RefreshCw className="size-3.5" /> : <CloudOff className="size-3.5" />}
+          {online ? `Tessera aggiornata · ${syncLabel(lastSync)}` : `Offline · tessera aggiornata il ${syncLabel(lastSync)}`}
+        </div>
+        {relatives.length > 0 && (
+          <div className="rounded-xl border bg-card p-3" data-testid="athlete-card-family-qr">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">QR familiari · funzionano anche offline</p>
+            <ul className="mt-2 divide-y">
+              {relatives.map((f) => (
+                <li key={f.id}>
+                  <button
+                    type="button"
+                    onClick={() => setBig({ name: `${f.first_name} ${f.last_name}`, sub: f.relation || "Familiare", code: f.code })}
+                    className="flex w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:text-primary"
+                    data-testid={`athlete-card-family-qr-${f.id}`}
+                  >
+                    <QRCodeSVG value={f.code} size={36} fgColor="#1e3a8a" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{f.first_name} {f.last_name}</span>
+                      <span className="block font-mono text-[11px] tracking-widest text-muted-foreground">{f.code}</span>
+                    </span>
+                    <Maximize2 className="size-4 text-primary" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <InstallCard />
         <Link
           to="/atleta/famiglia"
@@ -128,19 +173,17 @@ export default function AthleteCard() {
         </div>
       </section>
 
-      <Dialog open={big} onOpenChange={setBig}>
+      <Dialog open={big !== null} onOpenChange={(o) => !o && setBig(null)}>
         <DialogContent className="sm:max-w-sm" data-testid="athlete-qr-dialog">
           <DialogHeader>
-            <DialogTitle>
-              {a.first_name} {a.last_name}
-            </DialogTitle>
-            <DialogDescription>{a.category_name}</DialogDescription>
+            <DialogTitle data-testid="athlete-qr-dialog-name">{big?.name}</DialogTitle>
+            <DialogDescription>{big?.sub}</DialogDescription>
           </DialogHeader>
           <div className="grid place-items-center gap-3 py-2">
-            <QRCodeSVG value={a.code} size={260} fgColor="#1e3a8a" data-testid="athlete-qr-large" />
-            <p className="tnum font-mono text-lg font-semibold tracking-[0.3em]">{a.code}</p>
+            <QRCodeSVG value={big?.code ?? ""} size={260} fgColor="#1e3a8a" data-testid="athlete-qr-large" />
+            <p className="tnum font-mono text-lg font-semibold tracking-[0.3em]" data-testid="athlete-qr-dialog-code">{big?.code}</p>
           </div>
-          <Button variant="outline" onClick={() => setBig(false)} data-testid="athlete-qr-close-button">
+          <Button variant="outline" onClick={() => setBig(null)} data-testid="athlete-qr-close-button">
             Chiudi
           </Button>
         </DialogContent>

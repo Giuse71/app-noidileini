@@ -1,4 +1,4 @@
-"""Emergent managed object storage for images (athlete photos, merchant/association logos).
+"""Image storage: a server folder when UPLOAD_DIR is set, otherwise Emergent managed object storage for images (athlete photos, merchant/association logos).
 
 Clients still send images as data URLs; `save_image` uploads them and returns a stable
 `/api/files/{id}` reference that <img> tags load through our backend (cookie auth).
@@ -10,7 +10,9 @@ import binascii
 import logging
 import os
 import re
+import mimetypes
 import uuid
+from pathlib import Path
 from typing import Optional
 
 import requests
@@ -31,11 +33,25 @@ EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif
 DATA_URL = re.compile(r"^data:(image/(?:jpeg|jpg|png|webp|gif));base64,(.+)$", re.S)
 FILE_REF = "/api/files/"
 
+# Own storage: when UPLOAD_DIR is set (Render disk, Hostinger, VPS…) files live in that server folder.
+UPLOAD_DIR = (os.environ.get("UPLOAD_DIR") or "").strip()
+
 _storage_key: Optional[str] = None
+
+
+def _local_path(path: str) -> Path:
+    base = Path(UPLOAD_DIR).resolve()
+    target = (base / path).resolve()
+    if base not in target.parents:
+        raise ValueError("invalid storage path")
+    return target
 
 
 def init_storage(force: bool = False) -> str:
     global _storage_key
+    if UPLOAD_DIR:
+        Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+        return "local"
     if _storage_key and not force:
         return _storage_key
     resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
@@ -56,10 +72,17 @@ def _request(method: str, path: str, **kw) -> requests.Response:
 
 
 def put_object(path: str, data: bytes, content_type: str) -> dict:
+    if UPLOAD_DIR:
+        target = _local_path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+        return {"path": path, "size": len(data)}
     return _request("PUT", path, headers={"Content-Type": content_type}, data=data, timeout=120).json()
 
 
 def get_object(path: str) -> tuple[bytes, str]:
+    if UPLOAD_DIR and _local_path(path).is_file():
+        return _local_path(path).read_bytes(), mimetypes.guess_type(path)[0] or "application/octet-stream"
     resp = _request("GET", path, timeout=60)
     return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 

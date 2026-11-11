@@ -23,6 +23,8 @@ import type { Association, Athlete, Category, Transaction } from "@/lib/types";
 
 const EMPTY_ASSOC: Association = {
   name: "", logo: null, address: "", city: "", vat_number: "", fiscal_code: "", email: "", phone: "", website: "", description: "", convention_rules: "",
+  hero_image: null, home_badge: "", home_title: "", home_subtitle: "", step1_title: "", step1_text: "", step2_title: "", step2_text: "",
+  step3_title: "", step3_text: "", partners_title: "", partners_subtitle: "",
 };
 
 function useAllTransactions() {
@@ -255,7 +257,7 @@ function AssociationForm({ initial }: { initial: Association }) {
     onError: (e) => toast.error(errMsg(e)),
   });
   const set = <K extends keyof Association>(k: K, v: Association[K]) => setForm({ ...form, [k]: v });
-  const text = (k: Exclude<keyof Association, "logo">, label: string) => (
+  const text = (k: Exclude<keyof Association, "logo" | "hero_image">, label: string) => (
     <Field label={label} htmlFor={`as-${k}`}>
       <Input id={`as-${k}`} value={form[k]} onChange={(e) => set(k, e.target.value)} data-testid={`association-${k.replace(/_/g, "-")}-input`} />
     </Field>
@@ -288,6 +290,27 @@ function AssociationForm({ initial }: { initial: Association }) {
       <Field label="Regolamento convenzione (mostrato ad atleti)" htmlFor="as-rules">
         <Textarea id="as-rules" rows={3} value={form.convention_rules} onChange={(e) => set("convention_rules", e.target.value)} data-testid="association-rules-input" />
       </Field>
+      <fieldset className="space-y-4 rounded-xl border border-dashed p-4" data-testid="association-home-content">
+        <legend className="px-1 text-sm font-semibold">Testi e immagini della home page</legend>
+        <ImageUpload value={form.hero_image} onChange={(v) => set("hero_image", v)} label="Immagine in evidenza (se vuota si usa il logo)" testid="association-hero-image" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {text("home_badge", "Etichetta sopra il titolo")}
+          {text("home_title", "Titolo principale")}
+        </div>
+        <Field label="Testo di presentazione" htmlFor="as-home_subtitle">
+          <Textarea id="as-home_subtitle" rows={3} value={form.home_subtitle} onChange={(e) => set("home_subtitle", e.target.value)} data-testid="association-home-subtitle-input" />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {text("step1_title", "Passo 1 · titolo")}
+          {text("step1_text", "Passo 1 · testo")}
+          {text("step2_title", "Passo 2 · titolo")}
+          {text("step2_text", "Passo 2 · testo")}
+          {text("step3_title", "Passo 3 · titolo")}
+          {text("step3_text", "Passo 3 · testo")}
+          {text("partners_title", "Titolo sezione partner")}
+          {text("partners_subtitle", "Sottotitolo sezione partner")}
+        </div>
+      </fieldset>
       <Button type="submit" disabled={save.isPending} data-testid="association-save-button">
         {save.isPending && <Loader2 className="size-4 animate-spin" />} Salva dati associazione
       </Button>
