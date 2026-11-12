@@ -171,7 +171,7 @@ export default function MerchantCassa() {
                   </p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    {athlete.category_name || "—"} · <span className="font-mono">{athlete.code}</span>
+                    {athlete.category_name || "—"}{athlete.team_role && ` · ${athlete.team_role}`} · <span className="font-mono">{athlete.code}</span>
                   </p>
                 )}
               </div>

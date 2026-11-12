@@ -73,3 +73,8 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - **Limiti peso immagini**: env IMAGE_MAX_MB_MEMBERS (default 1) and IMAGE_MAX_MB_BOARD (default 5); save_image(board=True) for admin uploads (association, hero, event photos, admin-edited merchants). GET /api/upload-limits; ImageUpload/GalleryUpload reject heavier originals client-side and show "Max N MB".
 - **Email**: GET /api/admin/email/status (gmail|emergent), POST /api/admin/email/test {to}. EmailTestCard at top of Report mensili tab.
 - Gmail failures (bad app password / disconnect) fall back to Emergent email for normal sends; the admin test button uses gmail_only=True so it reports the real Gmail outcome. GMAIL_USER + GMAIL_APP_PASSWORD are set in preview but the saved app password is rejected by Google (needs a 16-letter app password).
+
+## Categoria libera, ruolo, ritaglio foto
+- AthleteUpdate/Register: category_id ("" allowed) + category_custom (typed, max 60) + team_role (optional, max 60). lib/categories.resolve_category → club category (id+name) or typed name (id None); neither → 400. Athlete exposes team_role; shown on card badge and at the till.
+- AthleteFields uses a native <select> (athlete-category-select, last option "__other" → athlete-category-custom-input) + role input with datalist (athlete-role-input). Base UI Select overlay was covering the form/scroll on phones.
+- ImageUpload round=true (athlete + family photos) opens PhotoCropDialog: drag + zoom (1–4x) in a round guide, saves 480×480 JPEG.

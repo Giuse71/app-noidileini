@@ -36,7 +36,10 @@ export interface Category {
 export interface AthleteUpdate {
   first_name: string;
   last_name: string;
+  /** club category id; empty when the athlete typed their own (category_custom) */
   category_id: string;
+  category_custom: string;
+  team_role: string;
   photo: string | null;
   notify_new_partners: boolean;
 }
@@ -52,6 +55,7 @@ export interface Athlete {
   last_name: string;
   category_id: string | null;
   category_name: string;
+  team_role: string;
   photo: string | null;
   code: string;
   email: string;

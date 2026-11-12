@@ -16,6 +16,8 @@ function ProfileForm({ athlete }: { athlete: Athlete }) {
     first_name: athlete.first_name,
     last_name: athlete.last_name,
     category_id: athlete.category_id ?? "",
+    category_custom: athlete.category_id ? "" : athlete.category_name,
+    team_role: athlete.team_role,
     photo: athlete.photo,
     notify_new_partners: athlete.notify_new_partners,
   });
@@ -30,8 +32,8 @@ function ProfileForm({ athlete }: { athlete: Athlete }) {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!form.category_id) {
-      toast.error("Seleziona la categoria");
+    if (!form.category_id && !form.category_custom.trim()) {
+      toast.error("Scegli o scrivi la categoria");
       return;
     }
     save.mutate(form);

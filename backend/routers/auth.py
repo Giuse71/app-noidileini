@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from lib.auth import clear_session, current_user, hash_password, set_session, verify_password
+from lib.categories import resolve_category
 from lib.db import db
 from lib.storage import save_gallery, save_image
 from lib.geocode import resolve_coords
@@ -58,17 +59,15 @@ async def ensure_email_free(email: str) -> None:
 async def register_athlete(body: AthleteRegister, request: Request, response: Response):
     email = body.email.lower()
     await ensure_email_free(email)
-    cat = await db.categories.find_one({"id": body.category_id}, {"_id": 0})
-    if not cat:
-        raise HTTPException(status_code=400, detail="Categoria non valida")
+    cat_id, cat_name = await resolve_category(body.category_id, body.category_custom)
     user = {"id": new_id(), "email": email, "password_hash": hash_password(body.password),
             "role": "athlete", "created_at": now_utc()}
     photo = await save_image(body.photo, kind="athletes", owner_user_id=user["id"], public=False)
     await db.users.insert_one(user)
     await db.athletes.insert_one({
         "id": new_id(), "user_id": user["id"], "first_name": body.first_name.strip(),
-        "last_name": body.last_name.strip(), "category_id": cat["id"], "category_name": cat["name"],
-        "photo": photo, "code": await new_athlete_code(), "created_at": now_utc(),
+        "last_name": body.last_name.strip(), "category_id": cat_id, "category_name": cat_name,
+        "team_role": " ".join(body.team_role.split()), "photo": photo, "code": await new_athlete_code(), "created_at": now_utc(),
     })
     set_session(response, request, user["id"])
     return await build_me(user)

@@ -67,6 +67,7 @@ class Athlete(BaseModel):
     last_name: str
     category_id: Optional[str] = None
     category_name: str = ""
+    team_role: str = ""
     photo: Optional[str] = None
     code: str
     email: str = ""
@@ -96,7 +97,10 @@ class FamilyMember(FamilyMemberIn):
 class AthleteUpdate(BaseModel):
     first_name: str = Field(min_length=1, max_length=60)
     last_name: str = Field(min_length=1, max_length=60)
-    category_id: str
+    # either a club category id, or a typed category (category_id empty)
+    category_id: str = ""
+    category_custom: str = Field(default="", max_length=60)
+    team_role: str = Field(default="", max_length=60)  # optional, e.g. Palleggiatore, Libero, Allenatore
     photo: Optional[str] = Field(default=None, max_length=IMG_MAX)
     notify_new_partners: bool = True
 

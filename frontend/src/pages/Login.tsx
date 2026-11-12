@@ -57,7 +57,7 @@ export default function Login() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [ath, setAth] = useState<AthleteRegister>({ email: "", password: "", first_name: "", last_name: "", category_id: "", photo: null, notify_new_partners: true });
+  const [ath, setAth] = useState<AthleteRegister>({ email: "", password: "", first_name: "", last_name: "", category_id: "", category_custom: "", team_role: "", photo: null, notify_new_partners: true });
   const [mer, setMer] = useState<MerchantRegister>({ ...EMPTY_MERCHANT, account_email: "", password: "" });
 
   const onSuccess = (data: Me) => {
@@ -75,8 +75,8 @@ export default function Login() {
 
   function submitAthlete(e: FormEvent) {
     e.preventDefault();
-    if (!ath.category_id) {
-      toast.error("Seleziona la categoria di appartenenza");
+    if (!ath.category_id && !ath.category_custom.trim()) {
+      toast.error("Scegli o scrivi la categoria di appartenenza");
       return;
     }
     regAth.mutate(ath);

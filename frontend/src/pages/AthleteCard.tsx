@@ -55,6 +55,7 @@ export default function AthleteCard() {
             </div>
             <span className="rounded-full bg-gold px-2.5 py-1 text-[11px] font-bold text-navy" data-testid="athlete-card-category">
               {a.category_name || "Senza categoria"}
+              {a.team_role && ` · ${a.team_role}`}
             </span>
           </div>
           <div className="relative mt-6 flex items-end gap-4">

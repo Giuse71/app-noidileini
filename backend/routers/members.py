@@ -8,6 +8,7 @@ import secrets
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from lib.auth import hash_password, require_role
+from lib.categories import resolve_category
 from lib.db import db
 from lib.storage import discard, save_gallery, save_image
 from lib.geocode import geocode, resolve_coords
@@ -42,12 +43,11 @@ async def my_athlete(user: dict = Depends(require_role("athlete"))):
 
 @router.put("/athletes/me", response_model=Athlete)
 async def update_my_athlete(body: AthleteUpdate, user: dict = Depends(require_role("athlete"))):
-    cat = await db.categories.find_one({"id": body.category_id}, {"_id": 0})
-    if not cat:
-        raise HTTPException(status_code=400, detail="Categoria non valida")
+    cat_id, cat_name = await resolve_category(body.category_id, body.category_custom)
     current = await db.athletes.find_one({"user_id": user["id"]}, {"photo": 1}) or {}
     photo = await save_image(body.photo, kind="athletes", owner_user_id=user["id"], public=False, old=current.get("photo"))
-    update = {**body.model_dump(), "photo": photo, "category_name": cat["name"],
+    update = {**body.model_dump(exclude={"category_custom"}), "photo": photo, "category_id": cat_id,
+              "category_name": cat_name, "team_role": " ".join(body.team_role.split()),
               "first_name": body.first_name.strip(), "last_name": body.last_name.strip()}
     doc = await db.athletes.find_one_and_update(
         {"user_id": user["id"]}, {"$set": update}, projection={"_id": 0}, return_document=True

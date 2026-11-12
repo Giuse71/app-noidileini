@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { fileToDataUrl } from "@/lib/format";
 import { tooHeavy, useImageLimitMb } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import PhotoCropDialog from "@/components/PhotoCropDialog";
 
 export default function ImageUpload({
   value,
@@ -27,6 +28,8 @@ export default function ImageUpload({
   const input = useRef<HTMLInputElement>(null);
   const limitMb = useImageLimitMb();
   const [busy, setBusy] = useState(false);
+  // round (profile) photos go through the crop dialog so people can frame them
+  const [cropping, setCropping] = useState<File | null>(null);
 
   async function handle(file: File | undefined) {
     if (!file) return;
@@ -36,6 +39,11 @@ export default function ImageUpload({
     }
     if (tooHeavy(file, limitMb)) {
       toast.error(`Immagine troppo pesante: massimo ${limitMb} MB`);
+      if (input.current) input.current.value = "";
+      return;
+    }
+    if (round) {
+      setCropping(file);
       if (input.current) input.current.value = "";
       return;
     }
@@ -89,6 +97,16 @@ export default function ImageUpload({
           onChange={(e) => void handle(e.target.files?.[0])}
         />
       </div>
+      {round && (
+        <PhotoCropDialog
+          file={cropping}
+          onCancel={() => setCropping(null)}
+          onDone={(v) => {
+            onChange(v);
+            setCropping(null);
+          }}
+        />
+      )}
     </div>
   );
 }
