@@ -1,6 +1,8 @@
 """Athletes and merchants profiles."""
 
+import logging
 import re
+from html import escape
 from typing import List, Literal, Optional
 
 import secrets
@@ -10,9 +12,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from lib.auth import hash_password, require_role
 from lib.categories import resolve_category
 from lib.db import db
+from lib.email import EmailError, send_email
 from lib.storage import discard, save_gallery, save_image
 from lib.geocode import geocode, resolve_coords
 from models.schemas import (
+    AthleteEmailIn,
+    AthleteEmailResult,
+    AthleteFilter,
+    AthleteMergeIn,
+    AthleteMergeResult,
     AthleteStatusIn,
     AdminMerchant,
     AdminMerchantSave,
@@ -27,8 +35,9 @@ from models.schemas import (
     now_utc,
 )
 from routers.auth import new_athlete_code
-from routers.notify import announce_merchant, public_base
+from routers.notify import _assoc_name as assoc_name_of, _frame as frame_email, announce_merchant, is_demo, public_base
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["members"])
 ATHLETE_LIST_PROJ = {"_id": 0}
 
@@ -62,26 +71,31 @@ def _exact_ci(value: str) -> dict:
     return {"$regex": f"^{re.escape(' '.join(value.split()))}$", "$options": "i"}
 
 
-@router.get("/athletes", response_model=List[Athlete])
-async def list_athletes(q: Optional[str] = None, category_id: Optional[str] = None,
-                        category: Optional[str] = None, role: Optional[str] = None,
-                        status: Literal["active", "inactive", "all"] = "active",
-                        user: dict = Depends(require_role("merchant", "admin"))):
+def _athlete_filter(f: AthleteFilter, is_admin: bool, category_id: Optional[str] = None) -> dict:
     flt: dict = {}
-    if q:
-        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
+    if f.q.strip():
+        rx = {"$regex": re.escape(f.q.strip()), "$options": "i"}
         flt["$or"] = [{"first_name": rx}, {"last_name": rx}, {"code": rx}]
     if category_id:
         flt["category_id"] = category_id
-    if category:  # by name: covers both club and typed categories
-        flt["category_name"] = _exact_ci(category)
-    if role:
-        flt["team_role"] = _exact_ci(role) if role != "__none" else {"$in": ["", None]}
+    if f.category:  # by name: covers both club and typed categories
+        flt["category_name"] = _exact_ci(f.category)
+    if f.role:
+        flt["team_role"] = _exact_ci(f.role) if f.role != "__none" else {"$in": ["", None]}
     # merchants only ever see active cards
-    if user["role"] != "admin" or status == "active":
+    if not is_admin or f.status == "active":
         flt["is_active"] = {"$ne": False}
-    elif status == "inactive":
+    elif f.status == "inactive":
         flt["is_active"] = False
+    return flt
+
+
+@router.get("/athletes", response_model=List[Athlete])
+async def list_athletes(q: str = "", category_id: Optional[str] = None,
+                        category: str = "", role: str = "",
+                        status: Literal["active", "inactive", "all"] = "active",
+                        user: dict = Depends(require_role("merchant", "admin"))):
+    flt = _athlete_filter(AthleteFilter(q=q, category=category, role=role, status=status), user["role"] == "admin", category_id)
     docs = await db.athletes.find(flt, ATHLETE_LIST_PROJ).sort([("last_name", 1), ("first_name", 1)]).to_list(2000)
     emails: dict = {}
     if user["role"] == "admin":
@@ -107,6 +121,57 @@ async def set_athlete_status(id: str, body: AthleteStatusIn, _: dict = Depends(r
         raise HTTPException(status_code=404, detail="Atleta non trovato")
     await db.users.update_one({"id": doc["user_id"]}, {"$set": {"is_active": body.active}})
     return Athlete(**doc)
+
+
+@router.post("/admin/athletes/merge", response_model=AthleteMergeResult)
+async def merge_athletes(body: AthleteMergeIn, _: dict = Depends(require_role("admin"))):
+    """Moves purchases and family cards of a duplicate account onto the kept one; the duplicate is deactivated (not deleted)."""
+    if body.keep_id == body.merge_id:
+        raise HTTPException(status_code=400, detail="Scegli due account diversi")
+    keep = await db.athletes.find_one({"id": body.keep_id}, {"_id": 0})
+    dup = await db.athletes.find_one({"id": body.merge_id}, {"_id": 0})
+    if not keep or not dup:
+        raise HTTPException(status_code=404, detail="Atleta non trovato")
+    if dup.get("merged_into"):
+        raise HTTPException(status_code=409, detail="Questo account è già stato unito")
+    tx = await db.transactions.update_many(
+        {"athlete_id": dup["id"]},
+        {"$set": {"athlete_id": keep["id"], "athlete_name": f'{keep["first_name"]} {keep["last_name"]}', "merged_from": dup["id"]}},
+    )
+    fam = await db.family_members.update_many({"athlete_id": dup["id"]}, {"$set": {"athlete_id": keep["id"]}})
+    await db.athletes.update_one({"id": dup["id"]}, {"$set": {"is_active": False, "deactivated_at": now_utc(), "merged_into": keep["id"]}})
+    await db.users.update_one({"id": dup["user_id"]}, {"$set": {"is_active": False}})
+    if keep.get("is_active") is False:  # merging into a deactivated account makes no sense: reactivate it
+        await db.athletes.update_one({"id": keep["id"]}, {"$set": {"is_active": True, "deactivated_at": None}})
+        await db.users.update_one({"id": keep["user_id"]}, {"$set": {"is_active": True}})
+        keep["is_active"] = True
+    count = await db.family_members.count_documents({"athlete_id": keep["id"]})
+    return AthleteMergeResult(kept=Athlete(**keep, family_count=count), transactions=tx.modified_count, family=fam.modified_count)
+
+
+async def _mail_athletes(emails: list[str], subject: str, message: str) -> None:
+    assoc_name = await assoc_name_of()
+    paragraphs = "".join(f"<p>{escape(p).replace(chr(10), '<br>')}</p>" for p in message.strip().split("\n\n"))
+    html = frame_email(assoc_name, f'<h2 style="margin:0 0 12px;color:#1e3a8a">{escape(subject)}</h2>{paragraphs}')
+    sent = 0
+    for e in emails:
+        try:
+            await send_email(to=[e], subject=subject, html=html)
+            sent += 1
+        except (EmailError, ValueError) as err:
+            logger.warning("board message to %s failed: %s", e, err)
+    logger.info("board message '%s' sent to %s/%s athletes", subject, sent, len(emails))
+
+
+@router.post("/admin/athletes/email", response_model=AthleteEmailResult)
+async def email_filtered_athletes(body: AthleteEmailIn, background: BackgroundTasks, _: dict = Depends(require_role("admin"))):
+    """Emails each athlete matching the same filters as the list (one email per person, addresses never shared)."""
+    docs = await db.athletes.find(_athlete_filter(body, True), {"_id": 0, "user_id": 1}).to_list(5000)
+    emails = [u["email"] async for u in db.users.find({"id": {"$in": [d["user_id"] for d in docs]}}, {"_id": 0, "email": 1})]
+    real = [e for e in emails if not is_demo(e)]
+    if real:
+        background.add_task(_mail_athletes, real, body.subject.strip(), body.message)
+    return AthleteEmailResult(recipients=len(real), skipped=len(docs) - len(real))
 
 
 @router.get("/athletes/by-code/{code}", response_model=Athlete)

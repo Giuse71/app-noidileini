@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, Download, Loader2, RotateCcw, UserX } from "lucide-react";
+import { Check, Download, GitMerge, Loader2, Mail, RotateCcw, UserX } from "lucide-react";
+import { EmailFilteredDialog, MergeDialog } from "@/components/AthleteDialogs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,8 @@ export function AthletesTab() {
   const [category, setCategory] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<"active" | "inactive" | "all">("active");
+  const [mergeDup, setMergeDup] = useState<Athlete | null>(null);
+  const [mailOpen, setMailOpen] = useState(false);
   const { data: categories = [] } = useCategories();
   const proposed = useProposed();
   const params = new URLSearchParams({ q, status });
@@ -92,7 +95,10 @@ export function AthletesTab() {
         <p className="tnum text-sm text-muted-foreground" data-testid="admin-athlete-count">
           {rows.length} atleti
         </p>
-        <Button variant="outline" size="sm" className="ml-auto" onClick={() => exportAthletes(rows)} disabled={rows.length === 0} data-testid="admin-athlete-export-csv">
+        <Button variant="outline" size="sm" className="ml-auto" onClick={() => setMailOpen(true)} disabled={rows.length === 0} data-testid="admin-athlete-email-filtered">
+          <Mail className="size-4" /> Scrivi ai filtrati
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => exportAthletes(rows)} disabled={rows.length === 0} data-testid="admin-athlete-export-csv">
           <Download className="size-4" /> Esporta CSV
         </Button>
       </div>
@@ -127,7 +133,8 @@ export function AthletesTab() {
                     <div className="min-w-0">
                       <p className="font-medium">
                         {a.first_name} {a.last_name}
-                        {!a.is_active && <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-destructive">Disattivato</span>}
+                        {a.merged_into && <span className="ml-2 rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">Unito</span>}
+                        {!a.is_active && !a.merged_into && <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-destructive">Disattivato</span>}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{a.email}</p>
                     </div>
@@ -141,7 +148,12 @@ export function AthletesTab() {
                 <TableCell className="tnum font-mono text-xs">{a.code}</TableCell>
                 <TableCell className="tnum text-right" data-testid={`admin-athlete-family-${a.code}`}>{a.family_count}</TableCell>
                 <TableCell className="tnum text-muted-foreground">{dateTime(a.created_at).slice(0, 10)}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap text-right">
+                  {!a.merged_into && (
+                    <Button variant="ghost" size="sm" onClick={() => setMergeDup(a)} data-testid={`admin-athlete-merge-${a.code}`}>
+                      <GitMerge className="size-4" /> Unisci
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -163,6 +175,8 @@ export function AthletesTab() {
           </TableBody>
         </Table>
       </div>
+      <MergeDialog dup={mergeDup} onClose={() => setMergeDup(null)} />
+      <EmailFilteredDialog filter={{ q, category, role, status }} count={rows.length} open={mailOpen} onClose={() => setMailOpen(false)} />
     </div>
   );
 }

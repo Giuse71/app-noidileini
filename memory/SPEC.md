@@ -84,3 +84,8 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - GET /api/athletes filters: q, category (name, case-insensitive exact — covers typed ones), role (exact or "__none"), status active|inactive|all (admin only). Admin rows include email. AthletesTab (components/AthletesAdmin.tsx) with filters + CSV export (atleti-leini-volley.csv) + Disattiva/Riattiva.
 - GET /api/admin/categories/proposed → typed categories grouped (active athletes, category_id None). POST /api/admin/categories/adopt {name} → creates/reuses official category and moves matching athletes. UI: ProposedCategories at top of Categorie tab.
 - Test athletes Smoke*/Marta Prova are deactivated.
+
+## Unisci duplicati, email ai filtrati, guardia /api
+- POST /api/admin/athletes/merge {keep_id, merge_id}: moves transactions (athlete_id/athlete_name, merged_from) and family_members to keep; duplicate gets is_active False + merged_into; its user deactivated; kept account reactivated if needed. 400 same id, 409 already merged. UI: "Unisci" per row → MergeDialog (components/AthleteDialogs.tsx).
+- POST /api/admin/athletes/email {q, category, role, status, subject, message}: same filter as the list (members._athlete_filter), one email per athlete in background, demo (@example.*) skipped → {recipients, skipped}. UI: "Scrivi ai filtrati".
+- lib/api.ts throws ApiError 502 with a clear message when a 2xx response is not JSON (host answered /api with index.html: missing proxy/rewrite). render.yaml documents: frontend must be a web service (`yarn start` proxy) or a Static Site with an /api/* rewrite placed before /* → /index.html.

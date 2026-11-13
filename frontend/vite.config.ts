@@ -38,6 +38,9 @@ if (!hotReloadDisabled) {
 const rawBackend = process.env.BACKEND_URL?.trim() || "http://localhost:8001";
 const backendTarget = /^https?:\/\//.test(rawBackend) ? rawBackend : `http://${rawBackend}`;
 const apiProxy = { "/api": { target: backendTarget, changeOrigin: true } };
+if (process.env.RENDER && !process.env.BACKEND_URL) {
+  console.warn("[noi-leyni] BACKEND_URL non impostato: le chiamate /api non raggiungeranno il backend");
+}
 
 // https://vite.dev/config/
 export default defineConfig(async () => {

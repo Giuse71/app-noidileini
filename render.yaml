@@ -1,4 +1,10 @@
-# Render Blueprint: two web services. The browser only talks to "noi-leyni-web";
+# Render Blueprint: two web services.
+# IMPORTANT: the frontend must be a *web service* running `yarn start` (it proxies /api to the backend).
+# Do NOT deploy it as a Render "Static Site" with only a "/* -> /index.html" rewrite: every /api call,
+# including POST /api/auth/login, would then get index.html with status 200 instead of JSON.
+# If you prefer a Static Site, add this rule ABOVE the SPA rewrite (Redirects/Rewrites tab):
+#   Source: /api/*   Destination: https://<your-backend>.onrender.com/api/*   Action: Rewrite
+#   Source: /*       Destination: /index.html                                Action: Rewrite The browser only talks to "noi-leyni-web";
 # its /api proxy forwards to the backend over Render's private network (same-origin cookies).
 services:
   - type: web

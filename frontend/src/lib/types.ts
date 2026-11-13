@@ -57,6 +57,7 @@ export interface Athlete {
   category_name: string;
   team_role: string;
   is_active: boolean;
+  merged_into: string | null;
   photo: string | null;
   code: string;
   email: string;
@@ -318,4 +319,27 @@ export interface ProposedCategory {
 export interface AdoptCategoryResult {
   category: Category;
   moved: number;
+}
+
+export interface AthleteMergeResult {
+  kept: Athlete;
+  transactions: number;
+  family: number;
+}
+
+export interface AthleteFilter {
+  q: string;
+  category: string;
+  role: string;
+  status: "active" | "inactive" | "all";
+}
+
+export interface AthleteEmailIn extends AthleteFilter {
+  subject: string;
+  message: string;
+}
+
+export interface AthleteEmailResult {
+  recipients: number;
+  skipped: number;
 }

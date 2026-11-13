@@ -74,6 +74,34 @@ class AthleteStatusIn(BaseModel):
     active: bool
 
 
+class AthleteMergeIn(BaseModel):
+    keep_id: str  # account that stays
+    merge_id: str  # duplicate: its purchases and family cards move to keep_id, then it is deactivated
+
+
+class AthleteMergeResult(BaseModel):
+    kept: "Athlete"
+    transactions: int
+    family: int
+
+
+class AthleteFilter(BaseModel):
+    q: str = ""
+    category: str = ""
+    role: str = ""
+    status: Literal["active", "inactive", "all"] = "active"
+
+
+class AthleteEmailIn(AthleteFilter):
+    subject: str = Field(min_length=1, max_length=150)
+    message: str = Field(min_length=1, max_length=5000)
+
+
+class AthleteEmailResult(BaseModel):
+    recipients: int
+    skipped: int
+
+
 # ---------- athletes ----------
 class Athlete(BaseModel):
     id: str
@@ -83,6 +111,7 @@ class Athlete(BaseModel):
     category_name: str = ""
     team_role: str = ""
     is_active: bool = True  # board can deactivate test/duplicate accounts (reversible)
+    merged_into: Optional[str] = None  # set when this duplicate was merged into another athlete
     photo: Optional[str] = None
     code: str
     email: str = ""
@@ -338,3 +367,5 @@ class SendReportResult(BaseModel):
     sent: int
     skipped: int
     failed: int
+
+AthleteMergeResult.model_rebuild()

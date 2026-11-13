@@ -1,0 +1,59 @@
+{
+  "iteration": 2,
+  "passed": 7,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Login works on the preview: POST /api/auth/login returns JSON (not index.html) and redirects",
+      "name": "login-json-redirect-preview",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Run against public preview URL https://noi-leyni--0yh202aj.preview.emergentagent.com: POST /api/auth/login with admin@leinivolley.it/Admin2026! -> response content-type application/json, body user.role=admin; browser navigated to /admin."
+    },
+    {
+      "criterion": "If the host answers /api with HTML (missing proxy/rewrite) the app fails loudly instead of silently not redirecting",
+      "name": "login-proxy-missing-shows-toast",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "page.route intercepted POST /api/auth/login to return 200 text/html (<!DOCTYPE html>...). Clicking login-submit-button showed toast text matching /l.indirizzo \\/api non arriva al backend/i and the app stayed on /login."
+    },
+    {
+      "criterion": "Production build proxy: build + `PORT=4555 yarn start` serves SPA and proxies /api",
+      "name": "production-build-proxy-manual",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "cd /app/frontend && DISABLE_VISUAL_EDITS=true DISABLE_EMERGENT_OVERLAY=true yarn build (succeeded, dist/ produced) && PORT=4555 BACKEND_URL=localhost:8001 yarn start (vite preview). curl http://localhost:4555/admin -> 200 HTML. curl -X POST http://localhost:4555/api/auth/login (admin creds) -> 200 JSON {user:{role:admin}} with Set-Cookie: lv_session=...; curl http://localhost:4555/api/auth/me with that cookie -> 200 JSON user. Preview server killed and frontend/dist removed afterwards (no leftover artifacts)."
+    },
+    {
+      "criterion": "Board merges a duplicate athlete (transactions+family move, duplicate inactive+merged_into; same id 400; repeat 409; merchant 403)",
+      "name": "test_tscheck_athlete_merge.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Registered two tscheck-merge-* athletes via /auth/register/athlete. POST /admin/athletes/merge same keep_id==merge_id -> 400. Merchant (pizzeria@example.it) -> 403. Real merge (admin) -> 200 {kept.id, transactions, family}. Repeat merge of same merge_id -> 409. GET /athletes?status=all&q=<suffix> shows duplicate row is_active=false, merged_into=keep_id. 1 test, passed."
+    },
+    {
+      "criterion": "Board merges a duplicate athlete — Admin UI merge dialog",
+      "name": "admin-athlete-merge-dialog-flow",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created tscheck-uimerge-keep/dup-<ts> athletes via page.request (then logged out). Logged in as admin, Atleti tab, status filter 'Tutti', searched suffix, clicked admin-athlete-merge-<code> on the dup row -> merge-dialog opened, selected keep account in merge-keep-select, clicked merge-confirm -> toast 'Unito in ...' shown, dup row now shows 'Unito' badge."
+    },
+    {
+      "criterion": "Board emails only the filtered athletes (recipients/skipped, demo domains skipped, empty subject 422, merchant 403)",
+      "name": "test_tscheck_athlete_email_filtered.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Registered tscheck-email-* athlete. POST /admin/athletes/email filtered by q -> 200 {recipients:0, skipped:1} (demo @example.it skipped). Empty subject -> 422. Merchant (pizzeria@example.it) -> 403. 1 test, passed."
+    },
+    {
+      "criterion": "Board emails only the filtered athletes — Admin UI 'Scrivi ai filtrati' dialog",
+      "name": "admin-athlete-email-filtered-count",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created tscheck-uiemail-<ts> athlete via page.request, logged in as admin, Atleti tab search narrowed count to 1 (admin-athlete-count = '1 atleti'); opened email-filtered-dialog, summary showed '1 atleti'; submitted subject+message; POST /api/admin/athletes/email -> 200 {recipients:0, skipped:1}; toast 'Nessun atleta con email valida...' shown. Fixture athlete deactivated afterwards via API."
+    }
+  ]
+}

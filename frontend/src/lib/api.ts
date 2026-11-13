@@ -32,6 +32,13 @@ async function request<T>(method: string, path: string, body?: JsonBody): Promis
   }
 
   if (res.status === 204) return undefined as T;
+  // A 200 with HTML means /api was answered by the static site (SPA rewrite), not by FastAPI:
+  // the host's /api proxy/rewrite is missing. Fail loudly instead of "logging in" with a web page.
+  if (!(res.headers.get("content-type") ?? "").includes("json")) {
+    throw new ApiError(502, {
+      detail: "Il server dell'app non risponde: l'indirizzo /api non arriva al backend (controlla proxy o rewrite dell'hosting)",
+    });
+  }
   return (await res.json()) as T;
 }
 
