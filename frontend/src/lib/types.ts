@@ -56,6 +56,7 @@ export interface Athlete {
   category_id: string | null;
   category_name: string;
   team_role: string;
+  is_active: boolean;
   photo: string | null;
   code: string;
   email: string;
@@ -307,4 +308,14 @@ export interface EmailStatus {
 export interface EmailTestResult {
   ok: boolean;
   provider: "gmail" | "emergent";
+}
+
+export interface ProposedCategory {
+  name: string;
+  count: number;
+}
+
+export interface AdoptCategoryResult {
+  category: Category;
+  moved: number;
 }

@@ -98,6 +98,8 @@ async def login(body: LoginIn, request: Request, response: Response):
     user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Email o password non corretti")
+    if user.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
     set_session(response, request, user["id"])
     return await build_me(user)
 

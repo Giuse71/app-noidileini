@@ -60,6 +60,20 @@ class CategoryIn(BaseModel):
     name: str = Field(min_length=1, max_length=60)
 
 
+class ProposedCategory(BaseModel):
+    name: str
+    count: int
+
+
+class AdoptCategoryResult(BaseModel):
+    category: Category
+    moved: int
+
+
+class AthleteStatusIn(BaseModel):
+    active: bool
+
+
 # ---------- athletes ----------
 class Athlete(BaseModel):
     id: str
@@ -68,6 +82,7 @@ class Athlete(BaseModel):
     category_id: Optional[str] = None
     category_name: str = ""
     team_role: str = ""
+    is_active: bool = True  # board can deactivate test/duplicate accounts (reversible)
     photo: Optional[str] = None
     code: str
     email: str = ""

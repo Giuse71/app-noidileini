@@ -1,7 +1,7 @@
 """Athletes and merchants profiles."""
 
 import re
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import secrets
 
@@ -13,6 +13,7 @@ from lib.db import db
 from lib.storage import discard, save_gallery, save_image
 from lib.geocode import geocode, resolve_coords
 from models.schemas import (
+    AthleteStatusIn,
     AdminMerchant,
     AdminMerchantSave,
     Athlete,
@@ -57,16 +58,34 @@ async def update_my_athlete(body: AthleteUpdate, user: dict = Depends(require_ro
     return Athlete(**doc, email=user["email"])
 
 
+def _exact_ci(value: str) -> dict:
+    return {"$regex": f"^{re.escape(' '.join(value.split()))}$", "$options": "i"}
+
+
 @router.get("/athletes", response_model=List[Athlete])
 async def list_athletes(q: Optional[str] = None, category_id: Optional[str] = None,
-                        _: dict = Depends(require_role("merchant", "admin"))):
+                        category: Optional[str] = None, role: Optional[str] = None,
+                        status: Literal["active", "inactive", "all"] = "active",
+                        user: dict = Depends(require_role("merchant", "admin"))):
     flt: dict = {}
     if q:
         rx = {"$regex": re.escape(q.strip()), "$options": "i"}
         flt["$or"] = [{"first_name": rx}, {"last_name": rx}, {"code": rx}]
     if category_id:
         flt["category_id"] = category_id
+    if category:  # by name: covers both club and typed categories
+        flt["category_name"] = _exact_ci(category)
+    if role:
+        flt["team_role"] = _exact_ci(role) if role != "__none" else {"$in": ["", None]}
+    # merchants only ever see active cards
+    if user["role"] != "admin" or status == "active":
+        flt["is_active"] = {"$ne": False}
+    elif status == "inactive":
+        flt["is_active"] = False
     docs = await db.athletes.find(flt, ATHLETE_LIST_PROJ).sort([("last_name", 1), ("first_name", 1)]).to_list(2000)
+    emails: dict = {}
+    if user["role"] == "admin":
+        emails = {u["id"]: u["email"] async for u in db.users.find({"id": {"$in": [d["user_id"] for d in docs if d.get("user_id")]}}, {"_id": 0, "id": 1, "email": 1})}
     counts = {
         c["_id"]: c["n"]
         async for c in db.family_members.aggregate([
@@ -74,7 +93,20 @@ async def list_athletes(q: Optional[str] = None, category_id: Optional[str] = No
             {"$group": {"_id": "$athlete_id", "n": {"$sum": 1}}},
         ])
     }
-    return [Athlete(**d, family_count=counts.get(d["id"], 0)) for d in docs]
+    return [Athlete(**{**d, "email": emails.get(d.get("user_id"), "")}, family_count=counts.get(d["id"], 0)) for d in docs]
+
+
+@router.patch("/admin/athletes/{id}/status", response_model=Athlete)
+async def set_athlete_status(id: str, body: AthleteStatusIn, _: dict = Depends(require_role("admin"))):
+    """Soft deactivate/reactivate: blocks login and the card at the till, keeps all history."""
+    doc = await db.athletes.find_one_and_update(
+        {"id": id}, {"$set": {"is_active": body.active, "deactivated_at": None if body.active else now_utc()}},
+        projection={"_id": 0}, return_document=True,
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Atleta non trovato")
+    await db.users.update_one({"id": doc["user_id"]}, {"$set": {"is_active": body.active}})
+    return Athlete(**doc)
 
 
 @router.get("/athletes/by-code/{code}", response_model=Athlete)
@@ -82,9 +114,13 @@ async def athlete_by_code(code: str, _: dict = Depends(require_role("merchant", 
     code = code.strip().upper()
     doc = await db.athletes.find_one({"code": code}, {"_id": 0})
     if doc:
+        if doc.get("is_active") is False:
+            raise HTTPException(status_code=404, detail="Tessera disattivata dal direttivo")
         return Athlete(**doc)
     fam = await db.family_members.find_one({"code": code}, {"_id": 0})
     holder = await db.athletes.find_one({"id": fam["athlete_id"]}, {"_id": 0}) if fam else None
+    if holder and holder.get("is_active") is False:
+        raise HTTPException(status_code=404, detail="Tessera disattivata dal direttivo")
     if not fam or not holder:
         raise HTTPException(status_code=404, detail="Nessun atleta con questo codice")
     return Athlete(

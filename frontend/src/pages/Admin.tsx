@@ -15,6 +15,7 @@ import TransactionsTable from "@/components/TransactionsTable";
 import { AdminMerchantsTab, ReportsTab } from "@/components/AdminExtras";
 import RankingTab from "@/components/RankingTab";
 import BoardTab from "@/components/BoardTab";
+import { AthletesTab, ProposedCategories } from "@/components/AthletesAdmin";
 import BachecaTab, { EmailTestCard } from "@/components/BachecaTab";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import { dateTime, errMsg, eur, initials, totals } from "@/lib/format";
@@ -141,50 +142,6 @@ function TransactionsReport() {
   );
 }
 
-function AthletesTab() {
-  const [q, setQ] = useState("");
-  const list = useQuery({ queryKey: ["athletes", q], queryFn: () => apiGet<Athlete[]>(`/athletes?q=${encodeURIComponent(q)}`) });
-  const rows = list.isError ? [] : (list.data ?? []);
-  return (
-    <div className="space-y-4">
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca atleta per nome o codice" className="max-w-sm" data-testid="admin-athlete-search" />
-      <div className="overflow-hidden rounded-xl border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/70">
-              <TableHead>Atleta</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Codice</TableHead>
-              <TableHead className="text-right">Familiari</TableHead>
-              <TableHead>Iscritto il</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((a) => (
-              <TableRow key={a.id} data-testid={`admin-athlete-row-${a.code}`}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-accent text-xs font-semibold text-primary">
-                      {a.photo ? <img src={a.photo} alt="" className="size-full object-cover" /> : initials(a.first_name, a.last_name)}
-                    </div>
-                    <span className="font-medium">
-                      {a.first_name} {a.last_name}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>{a.category_name || "—"}</TableCell>
-                <TableCell className="tnum font-mono text-xs">{a.code}</TableCell>
-                <TableCell className="tnum text-right" data-testid={`admin-athlete-family-${a.code}`}>{a.family_count}</TableCell>
-                <TableCell className="tnum text-muted-foreground">{dateTime(a.created_at).slice(0, 10)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-}
-
 function AdminMerchantsTabWrapper() {
   const tx = useAllTransactions();
   return <AdminMerchantsTab transactions={tx.isError ? [] : (tx.data ?? [])} />;
@@ -226,6 +183,7 @@ function CategoriesTab() {
           <Plus className="size-4" /> Aggiungi
         </Button>
       </form>
+      <ProposedCategories />
       <ul className="divide-y rounded-xl border bg-card" data-testid="category-list">
         {categories.map((c) => (
           <li key={c.id} className="flex items-center justify-between px-4 py-2.5" data-testid={`category-item-${c.id}`}>

@@ -1,5 +1,6 @@
 """Association settings and categories (public read, admin write)."""
 
+import re
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from lib.auth import require_role
 from lib.db import db
 from lib.storage import save_image
-from models.schemas import Association, Category, CategoryIn
+from models.schemas import AdoptCategoryResult, Association, Category, CategoryIn, ProposedCategory
 
 router = APIRouter(tags=["club"])
 admin_only = require_role("admin")
@@ -51,3 +52,35 @@ async def delete_category(id: str):
         raise HTTPException(status_code=404, detail="Categoria non trovata")
     await db.athletes.update_many({"category_id": id}, {"$set": {"category_id": None, "category_name": ""}})
     return {"ok": True}
+
+
+# ---------- categories typed by athletes ("Altro") ----------
+@router.get("/admin/categories/proposed", response_model=List[ProposedCategory], dependencies=[Depends(admin_only)])
+async def proposed_categories():
+    groups: dict[str, ProposedCategory] = {}
+    async for a in db.athletes.find({"category_id": None, "category_name": {"$nin": ["", None]}, "is_active": {"$ne": False}},
+                                    {"_id": 0, "category_name": 1}):
+        name = " ".join(a["category_name"].split())
+        key = name.lower()
+        if key in groups:
+            groups[key].count += 1
+        else:
+            groups[key] = ProposedCategory(name=name, count=1)
+    return sorted(groups.values(), key=lambda g: (-g.count, g.name.lower()))
+
+
+@router.post("/admin/categories/adopt", response_model=AdoptCategoryResult, dependencies=[Depends(admin_only)])
+async def adopt_category(body: CategoryIn):
+    """Adds a typed category to the official list and moves the athletes who typed it."""
+    name = " ".join(body.name.split())
+    rx = {"$regex": f"^{re.escape(name)}$", "$options": "i"}
+    existing = await db.categories.find_one({"name": rx}, {"_id": 0})
+    if existing:
+        cat = Category(**existing)
+    else:
+        last = await db.categories.find_one({}, sort=[("order", -1)])
+        cat = Category(name=name, order=(last["order"] + 1) if last else 0)
+        await db.categories.insert_one(cat.model_dump())
+    res = await db.athletes.update_many({"category_id": None, "category_name": rx},
+                                        {"$set": {"category_id": cat.id, "category_name": cat.name}})
+    return AdoptCategoryResult(category=cat, moved=res.modified_count)

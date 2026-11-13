@@ -64,6 +64,8 @@ async def current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Utente non trovato")
+    if user.get("is_active") is False:
+        raise HTTPException(status_code=401, detail="Account disattivato: contatta il direttivo")
     return user
 
 

@@ -18,9 +18,9 @@ async def create_transaction(body: TransactionCreate, user: dict = Depends(requi
     merchant = await db.merchants.find_one({"user_id": user["id"]}, {"_id": 0})
     if not merchant:
         raise HTTPException(status_code=404, detail="Profilo commerciante non trovato")
-    athlete = await db.athletes.find_one({"id": body.athlete_id}, {"_id": 0})
+    athlete = await db.athletes.find_one({"id": body.athlete_id, "is_active": {"$ne": False}}, {"_id": 0})
     if not athlete:
-        raise HTTPException(status_code=404, detail="Atleta non trovato")
+        raise HTTPException(status_code=404, detail="Atleta non trovato o tessera disattivata")
     code, fam_name, relation = athlete["code"], "", ""
     if body.family_member_id:
         fam = await db.family_members.find_one({"id": body.family_member_id, "athlete_id": athlete["id"]}, {"_id": 0})

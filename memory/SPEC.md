@@ -78,3 +78,9 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - AthleteUpdate/Register: category_id ("" allowed) + category_custom (typed, max 60) + team_role (optional, max 60). lib/categories.resolve_category → club category (id+name) or typed name (id None); neither → 400. Athlete exposes team_role; shown on card badge and at the till.
 - AthleteFields uses a native <select> (athlete-category-select, last option "__other" → athlete-category-custom-input) + role input with datalist (athlete-role-input). Base UI Select overlay was covering the form/scroll on phones.
 - ImageUpload round=true (athlete + family photos) opens PhotoCropDialog: drag + zoom (1–4x) in a round guide, saves 480×480 JPEG.
+
+## Gestione atleti (direttivo)
+- Athlete.is_active (default true). PATCH /api/admin/athletes/{id}/status {active} sets athletes.is_active + users.is_active (soft, reversible). Inactive: login 403, existing sessions 401, by-code + transactions 404 "Tessera disattivata" (family cards too). Merchants never see inactive athletes.
+- GET /api/athletes filters: q, category (name, case-insensitive exact — covers typed ones), role (exact or "__none"), status active|inactive|all (admin only). Admin rows include email. AthletesTab (components/AthletesAdmin.tsx) with filters + CSV export (atleti-leini-volley.csv) + Disattiva/Riattiva.
+- GET /api/admin/categories/proposed → typed categories grouped (active athletes, category_id None). POST /api/admin/categories/adopt {name} → creates/reuses official category and moves matching athletes. UI: ProposedCategories at top of Categorie tab.
+- Test athletes Smoke*/Marta Prova are deactivated.

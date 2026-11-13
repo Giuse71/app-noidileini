@@ -22,7 +22,7 @@ export function Field({ label, htmlFor, children, hint }: { label: string; htmlF
 }
 
 const OTHER = "__other";
-const ROLES = ["Palleggiatore", "Schiacciatore", "Opposto", "Centrale", "Libero", "Allenatore", "Dirigente", "Accompagnatore"];
+export const ROLES = ["Palleggiatore", "Schiacciatore", "Opposto", "Centrale", "Libero", "Allenatore", "Dirigente", "Accompagnatore"];
 
 export function AthleteFields({ value, onChange }: { value: AthleteUpdate; onChange: (v: AthleteUpdate) => void }) {
   const { data: categories = [] } = useCategories();
