@@ -1,0 +1,14 @@
+**/node_modules
+**/.venv
+**/venv
+**/__pycache__
+**/.pytest_cache
+frontend/dist
+**/.env
+.git
+.emergent
+test_reports
+tests
+memory
+app.zip
+*.log

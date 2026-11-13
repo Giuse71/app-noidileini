@@ -1,0 +1,45 @@
+{
+  "iteration": 3,
+  "passed": 8,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "Single-service production mode: FastAPI serves the built SPA and the API from one origin (Render Docker deploy)",
+      "name": "test_tscheck_single_service_spa.py (test_spa_serves_html_for_app_routes, test_spa_serves_immutable_js_bundle)",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Built frontend (yarn build, dist/ produced), started `FRONTEND_DIST=/app/frontend/dist uvicorn server:app --port 8019`. GET /, /admin, /atleta/profilo -> 200 text/html. GET /assets/index-CiJVShxi.js -> 200 text/javascript with cache-control: public, max-age=31536000, immutable."
+    },
+    {
+      "criterion": "Login on the single-service server returns JSON, never index.html",
+      "name": "test_tscheck_single_service_spa.py (test_login_returns_json_not_html) + single-service-login-survives-reload",
+      "lane": "backend+browser",
+      "status": "passed",
+      "evidence": "POST localhost:8019/api/auth/login admin@leinivolley.it/Admin2026! -> 200 application/json {user.role:admin} + Set-Cookie lv_session=...HttpOnly. Browser: filled login form at http://localhost:8019/login, submitted, landed on /admin, reloaded page and URL stayed /admin (session cookie persisted)."
+    },
+    {
+      "criterion": "/api paths are never answered by the SPA",
+      "name": "test_tscheck_single_service_spa.py (test_api_unknown_paths_are_json_404_and_405, test_path_traversal_returns_spa_not_system_file)",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/nope -> 404 application/json {\"detail\":\"Not Found\"}; GET /api -> 404 application/json; POST /api/nope -> 405 application/json {\"detail\":\"Method Not Allowed\"}; GET /..%2f..%2fetc/passwd -> 200 text/html (index.html content, no 'root:' string, confirming no system file leak)."
+    },
+    {
+      "criterion": "Dev preview unaffected",
+      "name": "login-json-redirect-preview (rerun) + manual curl of pod :8001",
+      "lane": "browser+backend",
+      "status": "passed",
+      "evidence": "Re-ran existing check login-json-redirect-preview against https://noi-leyni--0yh202aj.preview.emergentagent.com: PASSED, admin lands on /admin. curl http://localhost:8001/admin -> 404 application/json {\"detail\":\"Not Found\"} confirming FRONTEND_DIST is unset in the pod and backend on :8001 does not serve the SPA."
+    },
+    {
+      "criterion": "Docker/Render config is consistent",
+      "name": "static-review-dockerfile-render-yaml",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Static review (docker not available in pod): /app/Dockerfile builds frontend with `node:22-bookworm-slim`, runs yarn build with DISABLE_VISUAL_EDITS/DISABLE_EMERGENT_OVERLAY/DISABLE_HOT_RELOAD=true, copies dist into python:3.11-slim image, sets ENV FRONTEND_DIST=/app/frontend/dist, removes backend/.env, CMD runs `uvicorn server:app --host 0.0.0.0 --port ${PORT:-10000}`. /app/.dockerignore excludes **/.env (and frontend/dist, node_modules, etc). /app/render.yaml defines a single `runtime: docker` web service with dockerfilePath ./Dockerfile and healthCheckPath: /api/. All three files consistent with the single-origin deploy design."
+    }
+  ]
+}

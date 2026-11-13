@@ -1,18 +1,16 @@
-# Render Blueprint: two web services.
-# IMPORTANT: the frontend must be a *web service* running `yarn start` (it proxies /api to the backend).
-# Do NOT deploy it as a Render "Static Site" with only a "/* -> /index.html" rewrite: every /api call,
-# including POST /api/auth/login, would then get index.html with status 200 instead of JSON.
-# If you prefer a Static Site, add this rule ABOVE the SPA rewrite (Redirects/Rewrites tab):
-#   Source: /api/*   Destination: https://<your-backend>.onrender.com/api/*   Action: Rewrite
-#   Source: /*       Destination: /index.html                                Action: Rewrite The browser only talks to "noi-leyni-web";
-# its /api proxy forwards to the backend over Render's private network (same-origin cookies).
+# Render Blueprint — ONE Docker web service (see /Dockerfile).
+# FastAPI answers /api/* and also serves the built React app for every other path, so the
+# browser talks to a single origin: no proxy, no rewrite rules, no CORS. /api can never be
+# answered by index.html (the cause of "login returns 200 with HTML").
+#
+# If you previously created a Render "Static Site" for the frontend, delete it (or stop using
+# its URL): open the app at this service's URL / your custom domain instead.
 services:
   - type: web
-    name: noi-leyni-api
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    name: noi-leyni
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/
     # persistent folder for logos/photos (UPLOAD_DIR); Render disks need a paid instance
     disk:
@@ -20,8 +18,6 @@ services:
       mountPath: /var/data
       sizeGB: 1
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.11
       - key: MONGO_URL
         sync: false # MongoDB Atlas connection string
       - key: DB_NAME
@@ -29,7 +25,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        sync: false # public URL of noi-leyni-web, e.g. https://app.tuodominio.it
+        sync: false # public URL of this service, e.g. https://app.tuodominio.it
       - key: APP_URL
         sync: false # same public URL, used in email links
       - key: EMAIL_FROM_NAME
@@ -43,27 +39,6 @@ services:
       - key: GMAIL_USER
         sync: false # your Gmail address
       - key: GMAIL_APP_PASSWORD
-        sync: false # Google "App password" (16 characters, needs 2-step verification)
+        sync: false # Google "App password" (16 letters, needs 2-step verification)
       - key: WEBHOOK_CRON_SECRET
         generateValue: true
-
-  - type: web
-    name: noi-leyni-web
-    runtime: node
-    rootDir: frontend
-    buildCommand: yarn install --frozen-lockfile --production=false && yarn build
-    startCommand: yarn start
-    envVars:
-      - key: NODE_VERSION
-        value: 22.12.0
-      - key: DISABLE_VISUAL_EDITS
-        value: "true"
-      - key: DISABLE_EMERGENT_OVERLAY
-        value: "true"
-      - key: DISABLE_HOT_RELOAD
-        value: "true"
-      - key: BACKEND_URL
-        fromService:
-          type: web
-          name: noi-leyni-api
-          property: hostport

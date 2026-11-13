@@ -77,6 +77,12 @@ for _r in (auth_router.router, club.router, members.router, transactions.router,
 # Include the router in the main app
 app.include_router(api_router)
 
+# Production single-service mode: serve the built SPA for every non-/api path.
+# Registered after the API router so /api routes always win.
+from lib.spa import mount_spa  # noqa: E402
+
+mount_spa(app)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

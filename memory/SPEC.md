@@ -89,3 +89,8 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - POST /api/admin/athletes/merge {keep_id, merge_id}: moves transactions (athlete_id/athlete_name, merged_from) and family_members to keep; duplicate gets is_active False + merged_into; its user deactivated; kept account reactivated if needed. 400 same id, 409 already merged. UI: "Unisci" per row → MergeDialog (components/AthleteDialogs.tsx).
 - POST /api/admin/athletes/email {q, category, role, status, subject, message}: same filter as the list (members._athlete_filter), one email per athlete in background, demo (@example.*) skipped → {recipients, skipped}. UI: "Scrivi ai filtrati".
 - lib/api.ts throws ApiError 502 with a clear message when a 2xx response is not JSON (host answered /api with index.html: missing proxy/rewrite). render.yaml documents: frontend must be a web service (`yarn start` proxy) or a Static Site with an /api/* rewrite placed before /* → /index.html.
+
+## Deploy Render (single service, recommended)
+- /Dockerfile: node 22 builds frontend/dist → python 3.11 image; FRONTEND_DIST=/app/frontend/dist; uvicorn on $PORT with proxy headers. .dockerignore excludes .env, node_modules, dist.
+- backend/lib/spa.py mount_spa(app) (called in server.py after app.include_router): when FRONTEND_DIST has index.html, GET /{path} serves files (assets/ immutable cache, others no-cache) or index.html; /api and /api/* are never answered with the SPA (JSON 404).
+- render.yaml = one Docker web service "noi-leyni" with disk + env vars. The old two-service/`yarn start` proxy path still works but is no longer the blueprint.
