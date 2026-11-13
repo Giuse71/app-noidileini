@@ -1,4 +1,4 @@
-import { List, Map } from "lucide-react";
+import { Hand, List, Map } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MerchantList from "@/components/MerchantList";
 import PartnersMap from "@/components/PartnersMap";
@@ -11,6 +11,10 @@ export default function AthleteConvenzioni() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Convenzioni sponsor</h1>
         <p className="text-sm text-muted-foreground">{assoc?.convention_rules || "Mostra la tessera prima di pagare."}</p>
+        <p className="mt-1.5 flex items-start gap-1.5 text-xs text-primary" data-testid="convenzioni-hint">
+          <Hand className="mt-px size-3.5 shrink-0" />
+          Scorri la lista dei partner e tocca un'offerta per vedere i dettagli dello sconto e le informazioni del commerciante
+        </p>
       </div>
       <Tabs defaultValue="list">
         <TabsList>

@@ -139,10 +139,27 @@
     }
   body {
     @apply bg-background text-foreground;
+    /* native-app feel: no sideways drift, no grey tap flash, no pull-to-refresh bounce */
+    overflow-x: clip;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
     }
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overflow-x: clip;
     }
+  img, video, canvas, svg { max-width: 100%; }
+  button, a, [role="button"] { touch-action: manipulation; }
+}
+
+/* safe areas (notch, rounded corners, home indicator) — viewport-fit=cover in index.html */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.px-safe { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+@media (display-mode: standalone) {
+  body { -webkit-user-select: none; user-select: none; }
+  input, textarea, [contenteditable], p, td, h1, h2, h3, li { -webkit-user-select: text; user-select: text; }
 }
 
 .tnum { font-variant-numeric: tabular-nums; }

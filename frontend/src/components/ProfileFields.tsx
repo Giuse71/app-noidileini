@@ -58,7 +58,7 @@ export function AthleteFields({ value, onChange }: { value: AthleteUpdate; onCha
               setOther(v === OTHER);
               onChange({ ...value, category_id: v === OTHER ? "" : v, category_custom: v === OTHER ? value.category_custom : "" });
             }}
-            className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-sm transition-[border-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-base md:text-sm transition-[border-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             data-testid="athlete-category-select"
           >
             <option value="" disabled>

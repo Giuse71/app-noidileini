@@ -251,7 +251,7 @@ function AssociationForm({ initial }: { initial: Association }) {
       </Field>
       <fieldset className="space-y-4 rounded-xl border border-dashed p-4" data-testid="association-home-content">
         <legend className="px-1 text-sm font-semibold">Testi e immagini della home page</legend>
-        <ImageUpload value={form.hero_image} onChange={(v) => set("hero_image", v)} label="Immagine in evidenza (se vuota si usa il logo)" testid="association-hero-image" />
+        <ImageUpload value={form.hero_image} onChange={(v) => set("hero_image", v)} label="Immagine in evidenza (se vuota si usa il logo)" testid="association-hero-image" crop="square" maxPx={1200} />
         <div className="grid gap-4 sm:grid-cols-2">
           {text("home_badge", "Etichetta sopra il titolo")}
           {text("home_title", "Titolo principale")}

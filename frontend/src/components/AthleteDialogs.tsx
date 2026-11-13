@@ -13,7 +13,7 @@ import { queryClient } from "@/lib/queryClient";
 import type { Athlete, AthleteEmailIn, AthleteEmailResult, AthleteFilter, AthleteMergeResult } from "@/lib/types";
 
 const selectCls =
-  "h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-base md:text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /** Merge a duplicate account (dup) into the one the board picks: purchases and family cards move, dup is deactivated. */
 export function MergeDialog({ dup, onClose }: { dup: Athlete | null; onClose: () => void }) {

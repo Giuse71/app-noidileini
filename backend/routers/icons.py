@@ -80,13 +80,22 @@ async def manifest():
         "name": "App Noi di Leyni · Leinì Volley",
         "short_name": "Noi di Leyni",
         "description": "Tessera digitale e convenzioni sponsor del Leinì Volley",
+        "id": "/atleta",
         "start_url": "/atleta",
         "scope": "/",
         "display": "standalone",
+        "display_override": ["standalone", "minimal-ui"],
         "orientation": "portrait",
         "background_color": "#1e3a8a",
-        "theme_color": "#1d4ed8",
+        "theme_color": "#1e3a8a",
         "lang": "it",
+        "dir": "ltr",
+        "categories": ["sports", "lifestyle", "shopping"],
+        "prefer_related_applications": False,
+        "shortcuts": [
+            {"name": "La mia tessera", "short_name": "Tessera", "url": "/atleta"},
+            {"name": "Convenzioni", "short_name": "Convenzioni", "url": "/atleta/convenzioni"},
+        ],
         "icons": icons,
     }
     return Response(content=json.dumps(body), media_type="application/manifest+json", headers={"Cache-Control": "no-cache"})

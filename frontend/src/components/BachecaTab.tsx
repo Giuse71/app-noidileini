@@ -106,7 +106,7 @@ function EventPhotosManager() {
           add.mutate({ image: form.image, caption: form.caption });
         }}
       >
-        <ImageUpload value={form.image} onChange={(v) => setForm({ ...form, image: v })} label="Foto" testid="event-photo-upload" maxPx={1600} />
+        <ImageUpload value={form.image} onChange={(v) => setForm({ ...form, image: v })} label="Foto" testid="event-photo-upload" maxPx={1600} crop="landscape" />
         <Field label="Didascalia" htmlFor="event-caption">
           <Input id="event-caption" maxLength={140} placeholder="Es. Under 16 · vittoria 3-1 a Chivasso" value={form.caption} onChange={(e) => setForm({ ...form, caption: e.target.value })} data-testid="event-photo-caption-input" />
         </Field>

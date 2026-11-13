@@ -94,3 +94,8 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - /Dockerfile: node 22 builds frontend/dist → python 3.11 image; FRONTEND_DIST=/app/frontend/dist; uvicorn on $PORT with proxy headers. .dockerignore excludes .env, node_modules, dist.
 - backend/lib/spa.py mount_spa(app) (called in server.py after app.include_router): when FRONTEND_DIST has index.html, GET /{path} serves files (assets/ immutable cache, others no-cache) or index.html; /api and /api/* are never answered with the SPA (JSON 404).
 - render.yaml = one Docker web service "noi-leyni" with disk + env vars. The old two-service/`yarn start` proxy path still works but is no longer the blueprint.
+
+## UI mobile / PWA (partner cards, immagini, safe area)
+- MerchantList: each card is a button (merchant-card-{id}) with chevron + "Vedi sconto e dettagli" → MerchantDetail dialog (merchant-detail-dialog: logo, discount block, promo, description, gallery, map/phone links). Hints: athlete-merchants-hint (AthleteCard), convenzioni-hint.
+- Logos always object-contain on white (Logo component, Crest, ImageUpload without crop). ImageUpload crop prop: "round" (default for round photos, 480²), "square" (hero 1200²), "landscape" 4:3 (event photos 1600×1200) via PhotoCropDialog(aspect, round, outWidth).
+- index.html viewport-fit=cover + format-detection; .pt-safe/.px-safe utilities (header, landing header, bottom nav); body overflow-x clip, no tap highlight, overscroll none; native selects text-base on phones (no iOS zoom). Manifest: id, display_override, shortcuts, theme #1e3a8a.

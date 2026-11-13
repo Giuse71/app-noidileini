@@ -15,6 +15,7 @@ export default function ImageUpload({
   round = false,
   placeholder,
   maxPx,
+  crop,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
@@ -24,7 +25,10 @@ export default function ImageUpload({
   placeholder?: string;
   /** longest side after resize; default keeps small profile-sized images */
   maxPx?: number;
+  /** framing step before saving; round photos default to "round". Logos skip it (never cut, shown with contain). */
+  crop?: "round" | "square" | "landscape";
 }) {
+  const cropMode = crop ?? (round ? "round" : undefined);
   const input = useRef<HTMLInputElement>(null);
   const limitMb = useImageLimitMb();
   const [busy, setBusy] = useState(false);
@@ -42,7 +46,7 @@ export default function ImageUpload({
       if (input.current) input.current.value = "";
       return;
     }
-    if (round) {
+    if (cropMode) {
       setCropping(file);
       if (input.current) input.current.value = "";
       return;
@@ -68,7 +72,7 @@ export default function ImageUpload({
         data-testid={`${testid}-preview`}
       >
         {value ? (
-          <img src={value} alt={label} className={cn("size-full", round ? "object-cover" : "object-contain bg-white")} />
+          <img src={value} alt={label} className={cn("size-full", cropMode ? "object-cover" : "object-contain bg-white")} />
         ) : (
           (placeholder ?? <ImagePlus className="size-6" />)
         )}
@@ -97,9 +101,12 @@ export default function ImageUpload({
           onChange={(e) => void handle(e.target.files?.[0])}
         />
       </div>
-      {round && (
+      {cropMode && (
         <PhotoCropDialog
           file={cropping}
+          round={cropMode === "round"}
+          aspect={cropMode === "landscape" ? 4 / 3 : 1}
+          outWidth={cropMode === "round" ? 480 : (maxPx ?? 1200)}
           onCancel={() => setCropping(null)}
           onDone={(v) => {
             onChange(v);

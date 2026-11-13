@@ -1,26 +1,34 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Minus, Move, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const VIEW = 280; // on-screen crop square (px)
-const OUT = 480; // saved photo side (px)
+const VIEW = 280; // on-screen crop frame width (px)
 
 interface Pos {
   x: number;
   y: number;
 }
 
-/** Lets people zoom and drag their photo inside the round frame before saving it. */
+/** Lets people zoom and drag their photo inside the frame (round, square or landscape) before saving it. */
 export default function PhotoCropDialog({
   file,
   onCancel,
   onDone,
+  aspect = 1,
+  round = true,
+  outWidth = 480,
 }: {
   file: File | null;
   onCancel: () => void;
   onDone: (dataUrl: string) => void;
+  /** width / height of the saved photo */
+  aspect?: number;
+  round?: boolean;
+  outWidth?: number;
 }) {
+  const VH = Math.round(VIEW / aspect);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pos, setPos] = useState<Pos>({ x: 0, y: 0 });
@@ -39,14 +47,14 @@ export default function PhotoCropDialog({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const base = img ? VIEW / Math.min(img.naturalWidth, img.naturalHeight) : 1;
+  const base = img ? Math.max(VIEW / img.naturalWidth, VH / img.naturalHeight) : 1;
   const scale = base * zoom;
   const w = img ? img.naturalWidth * scale : VIEW;
-  const h = img ? img.naturalHeight * scale : VIEW;
+  const h = img ? img.naturalHeight * scale : VH;
   // keep the frame always covered by the photo
   const clamp = (p: Pos): Pos => ({
     x: Math.max(-(w - VIEW) / 2, Math.min((w - VIEW) / 2, p.x)),
-    y: Math.max(-(h - VIEW) / 2, Math.min((h - VIEW) / 2, p.y)),
+    y: Math.max(-(h - VH) / 2, Math.min((h - VH) / 2, p.y)),
   });
   const view = clamp(pos);
 
@@ -62,16 +70,16 @@ export default function PhotoCropDialog({
 
   function save() {
     if (!img) return;
-    const k = OUT / VIEW;
+    const k = outWidth / VIEW;
     const canvas = document.createElement("canvas");
-    canvas.width = OUT;
-    canvas.height = OUT;
+    canvas.width = outWidth;
+    canvas.height = Math.round(VH * k);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, OUT, OUT);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(img, (VIEW / 2 + view.x - w / 2) * k, (VIEW / 2 + view.y - h / 2) * k, w * k, h * k);
+    ctx.drawImage(img, (VIEW / 2 + view.x - w / 2) * k, (VH / 2 + view.y - h / 2) * k, w * k, h * k);
     onDone(canvas.toDataURL("image/jpeg", 0.88));
   }
 
@@ -81,13 +89,13 @@ export default function PhotoCropDialog({
     <Dialog open={file !== null} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="sm:max-w-sm" data-testid="photo-crop-dialog">
         <DialogHeader>
-          <DialogTitle>Sistema la tua foto</DialogTitle>
+          <DialogTitle>Sistema la foto</DialogTitle>
           <DialogDescription>Trascina per spostarla, usa lo zoom per ingrandirla.</DialogDescription>
         </DialogHeader>
         <div className="grid place-items-center">
           <div
             className="relative cursor-grab touch-none overflow-hidden rounded-xl bg-muted select-none active:cursor-grabbing"
-            style={{ width: VIEW, height: VIEW }}
+            style={{ width: VIEW, height: VH }}
             onPointerDown={onDown}
             onPointerMove={onMove}
             onPointerUp={() => (drag.current = null)}
@@ -101,11 +109,16 @@ export default function PhotoCropDialog({
                 alt="Anteprima"
                 draggable={false}
                 className="pointer-events-none absolute max-w-none"
-                style={{ width: w, height: h, left: VIEW / 2 + view.x - w / 2, top: VIEW / 2 + view.y - h / 2 }}
+                style={{ width: w, height: h, left: VIEW / 2 + view.x - w / 2, top: VH / 2 + view.y - h / 2 }}
               />
             )}
-            {/* round guide: what shows on the card */}
-            <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgba(15,23,42,0.45)] ring-2 ring-white/90" />
+            {/* guide: what will be visible once saved */}
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-0 ring-2 ring-white/90",
+                round ? "rounded-full shadow-[0_0_0_999px_rgba(15,23,42,0.45)]" : "rounded-xl",
+              )}
+            />
             <Move className="pointer-events-none absolute bottom-2 right-2 size-4 text-white/80" />
           </div>
         </div>

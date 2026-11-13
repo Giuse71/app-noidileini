@@ -28,8 +28,8 @@ export default function AppShell({ nav, roleLabel, children }: { nav: NavItem[];
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-24 md:pb-12">
-      <header className="sticky top-0 z-30 border-b bg-white/85 backdrop-blur-md">
+    <div className="min-h-dvh bg-background pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-12">
+      <header className="pt-safe px-safe sticky top-0 z-30 border-b bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 md:px-6">
           <Link to="/" className="flex min-w-0 items-center gap-3" data-testid="shell-home-link">
             <Crest logo={assoc?.logo} testid="shell-logo" />
@@ -77,11 +77,11 @@ export default function AppShell({ nav, roleLabel, children }: { nav: NavItem[];
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1200px] px-4 py-6 md:px-6 md:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1200px] min-w-0 px-4 py-6 md:px-6 md:py-8">{children}</main>
 
       {nav.length > 1 && (
         <nav
-          className="fixed inset-x-0 bottom-0 z-30 grid border-t bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+          className="px-safe fixed inset-x-0 bottom-0 z-30 grid border-t bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
           style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}
         >
           {nav.map((item) => (
@@ -92,13 +92,13 @@ export default function AppShell({ nav, roleLabel, children }: { nav: NavItem[];
               data-testid={`mobile-nav-${item.testid}`}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted-foreground transition-colors",
+                  "flex min-w-0 flex-col items-center gap-1 py-2.5 text-[11px] font-medium text-muted-foreground transition-colors active:scale-95 [&>span]:max-w-full [&>span]:truncate",
                   isActive && "text-primary",
                 )
               }
             >
               <item.icon className="size-5" />
-              {item.label}
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>

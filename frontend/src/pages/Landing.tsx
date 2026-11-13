@@ -26,7 +26,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <header className="relative overflow-hidden bg-navy text-white">
+      <header className="pt-safe px-safe relative overflow-hidden bg-navy text-white">
         <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-primary/60 blur-3xl" />
         <div className="pointer-events-none absolute bottom-0 left-0 h-1.5 w-full bg-gold" />
         <div className="relative mx-auto max-w-[1200px] px-4 pb-16 pt-6 md:px-6 md:pb-24">

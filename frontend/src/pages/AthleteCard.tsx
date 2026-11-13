@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowRight, CloudOff, Megaphone, Maximize2, PiggyBank, Receipt, RefreshCw, Sparkles, Users } from "lucide-react";
+import { ArrowRight, CloudOff, Hand, Megaphone, Maximize2, PiggyBank, Receipt, RefreshCw, Sparkles, Users } from "lucide-react";
 import InstallCard from "@/components/InstallCard";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -185,7 +185,11 @@ export default function AthleteCard() {
             Tutte <ArrowRight className="size-4" />
           </Link>
         </div>
-        <div className="mt-4">
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-accent/60 px-3 py-2 text-xs text-primary" data-testid="athlete-merchants-hint">
+          <Hand className="mt-px size-3.5 shrink-0" />
+          Scorri la lista dei partner e tocca un'offerta per vedere i dettagli dello sconto e le informazioni del commerciante
+        </p>
+        <div className="mt-3">
           <MerchantList limit={4} />
         </div>
         </div>
