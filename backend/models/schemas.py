@@ -70,6 +70,16 @@ class AdoptCategoryResult(BaseModel):
     moved: int
 
 
+class DuplicateGroup(BaseModel):
+    reason: Literal["name", "email"]
+    key: str
+    athletes: list["Athlete"]
+
+
+class Favorites(BaseModel):
+    merchant_ids: list[str] = []
+
+
 class AthleteStatusIn(BaseModel):
     active: bool
 
@@ -265,6 +275,19 @@ class InviteResult(BaseModel):
     invited_at: datetime
 
 
+class RegisterResult(BaseModel):
+    pending_verification: bool = True
+    email: str
+
+
+class EmailTokenIn(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+
+
+class ResendVerificationIn(BaseModel):
+    email: EmailStr
+
+
 class Me(BaseModel):
     user: UserOut
     athlete: Optional[Athlete] = None
@@ -369,3 +392,4 @@ class SendReportResult(BaseModel):
     failed: int
 
 AthleteMergeResult.model_rebuild()
+DuplicateGroup.model_rebuild()

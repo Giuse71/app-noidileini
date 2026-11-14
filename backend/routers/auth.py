@@ -9,8 +9,13 @@ from lib.categories import resolve_category
 from lib.db import db
 from lib.storage import save_gallery, save_image
 from lib.geocode import resolve_coords
-from routers.notify import announce_merchant, public_base, token_hash
+from routers.notify import announce_merchant, public_base, send_verification, token_hash
+
+UNVERIFIED = "Conferma prima la tua email: apri il link che ti abbiamo inviato (controlla anche lo spam)"
 from models.schemas import (
+    EmailTokenIn,
+    RegisterResult,
+    ResendVerificationIn,
     Athlete,
     ChangePasswordIn,
     AthleteRegister,
@@ -55,13 +60,14 @@ async def ensure_email_free(email: str) -> None:
         raise HTTPException(status_code=409, detail="Email già registrata")
 
 
-@router.post("/register/athlete", response_model=Me)
-async def register_athlete(body: AthleteRegister, request: Request, response: Response):
+@router.post("/register/athlete", response_model=RegisterResult)
+async def register_athlete(body: AthleteRegister, request: Request, background: BackgroundTasks):
     email = body.email.lower()
     await ensure_email_free(email)
     cat_id, cat_name = await resolve_category(body.category_id, body.category_custom)
+    # self-registered accounts stay locked until the email address is confirmed
     user = {"id": new_id(), "email": email, "password_hash": hash_password(body.password),
-            "role": "athlete", "created_at": now_utc()}
+            "role": "athlete", "email_verified": False, "created_at": now_utc()}
     photo = await save_image(body.photo, kind="athletes", owner_user_id=user["id"], public=False)
     await db.users.insert_one(user)
     await db.athletes.insert_one({
@@ -69,16 +75,16 @@ async def register_athlete(body: AthleteRegister, request: Request, response: Re
         "last_name": body.last_name.strip(), "category_id": cat_id, "category_name": cat_name,
         "team_role": " ".join(body.team_role.split()), "photo": photo, "code": await new_athlete_code(), "created_at": now_utc(),
     })
-    set_session(response, request, user["id"])
-    return await build_me(user)
+    background.add_task(send_verification, user, public_base(request))
+    return RegisterResult(email=email)
 
 
-@router.post("/register/merchant", response_model=Me)
-async def register_merchant(body: MerchantRegister, request: Request, response: Response, background: BackgroundTasks):
+@router.post("/register/merchant", response_model=RegisterResult)
+async def register_merchant(body: MerchantRegister, request: Request, background: BackgroundTasks):
     email = body.account_email.lower()
     await ensure_email_free(email)
     user = {"id": new_id(), "email": email, "password_hash": hash_password(body.password),
-            "role": "merchant", "created_at": now_utc()}
+            "role": "merchant", "email_verified": False, "created_at": now_utc()}
     profile = MerchantUpdate(**body.model_dump()).model_dump()
     profile["logo"] = await save_image(profile["logo"], kind="merchants", owner_user_id=user["id"], public=True)
     profile["gallery"] = await save_gallery(profile["gallery"], owner_user_id=user["id"])
@@ -88,9 +94,9 @@ async def register_merchant(body: MerchantRegister, request: Request, response: 
         profile["email"] = email
     mid = new_id()
     await db.merchants.insert_one({**profile, "id": mid, "user_id": user["id"], "created_at": now_utc()})
-    background.add_task(announce_merchant, mid, public_base(request))
-    set_session(response, request, user["id"])
-    return await build_me(user)
+    # athletes hear about the new partner only after the merchant confirmed the email (see verify_email)
+    background.add_task(send_verification, user, public_base(request))
+    return RegisterResult(email=email)
 
 
 @router.post("/login", response_model=Me)
@@ -100,8 +106,39 @@ async def login(body: LoginIn, request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Email o password non corretti")
     if user.get("is_active") is False:
         raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
+    if user.get("email_verified") is False:
+        raise HTTPException(status_code=403, detail=UNVERIFIED)
     set_session(response, request, user["id"])
     return await build_me(user)
+
+
+@router.post("/verify-email", response_model=Me)
+async def verify_email(body: EmailTokenIn, request: Request, response: Response, background: BackgroundTasks):
+    doc = await db.email_tokens.find_one_and_update(
+        {"token_hash": token_hash(body.token), "used": False, "expires_at": {"$gt": now_utc()}},
+        {"$set": {"used": True, "used_at": now_utc()}},
+    )
+    if not doc:
+        raise HTTPException(status_code=400, detail="Link non valido o scaduto: accedi per riceverne uno nuovo")
+    await db.users.update_one({"id": doc["user_id"]}, {"$set": {"email_verified": True, "email_verified_at": now_utc()}})
+    user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
+    if not user or user.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
+    if user["role"] == "merchant":
+        m = await db.merchants.find_one({"user_id": user["id"]}, {"id": 1})
+        if m:
+            background.add_task(announce_merchant, m["id"], public_base(request))
+    set_session(response, request, user["id"])
+    return await build_me(user)
+
+
+@router.post("/resend-verification")
+async def resend_verification(body: ResendVerificationIn, request: Request, background: BackgroundTasks):
+    """Generic answer: never reveals whether the address is registered."""
+    user = await db.users.find_one({"email": body.email.lower(), "email_verified": False}, {"_id": 0})
+    if user:
+        background.add_task(send_verification, user, public_base(request))
+    return {"ok": True}
 
 
 async def _valid_token(token: str) -> dict:
@@ -127,7 +164,8 @@ async def set_password(body: SetPasswordIn, request: Request, response: Response
     res = await db.password_tokens.update_one({"_id": doc["_id"], "used": False}, {"$set": {"used": True}})
     if res.modified_count == 0:
         raise HTTPException(status_code=400, detail="Link già utilizzato")
-    await db.users.update_one({"id": doc["user_id"]}, {"$set": {"password_hash": hash_password(body.password)}})
+    # the link arrived by email, so the address is proven
+    await db.users.update_one({"id": doc["user_id"]}, {"$set": {"password_hash": hash_password(body.password), "email_verified": True}})
     user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
     set_session(response, request, user["id"])
     return await build_me(user)

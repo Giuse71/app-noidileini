@@ -240,7 +240,7 @@ export function ReportsTab() {
         </p>
         <p className="mt-1">
           Ogni commerciante con almeno una vendita riceve il riepilogo del mese precedente all'email di accesso, in copia a{" "}
-          <strong data-testid="report-cc-email">{assoc?.email || "— (imposta l'email nella scheda Associazione)"}</strong>. Gli indirizzi dimostrativi @example.it vengono saltati.
+          <strong data-testid="report-cc-email">{assoc?.email || "— (imposta l'email nella scheda Associazione)"}</strong>.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/40 bg-gold-soft p-4 text-sm">

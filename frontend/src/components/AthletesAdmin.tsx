@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, Download, GitMerge, Loader2, Mail, RotateCcw, UserX } from "lucide-react";
+import { AlertTriangle, Check, Download, GitMerge, Loader2, Mail, RotateCcw, UserX } from "lucide-react";
 import { EmailFilteredDialog, MergeDialog } from "@/components/AthleteDialogs";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import { dateTime, errMsg, initials } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
 import { useCategories } from "@/lib/session";
-import type { AdoptCategoryResult, Athlete, ProposedCategory } from "@/lib/types";
+import type { AdoptCategoryResult, Athlete, DuplicateGroup, ProposedCategory } from "@/lib/types";
 
 const PROPOSED_KEY = ["categories", "proposed"];
 const selectCls =
@@ -37,12 +37,52 @@ function exportAthletes(rows: Athlete[]) {
   URL.revokeObjectURL(link.href);
 }
 
+/** Possible duplicates (same name in any order, or same email ignoring dots/+tags) with a one-tap merge. */
+function DuplicatesPanel({ onMerge }: { onMerge: (dup: Athlete, keepId: string) => void }) {
+  const q = useQuery({ queryKey: ["athlete-duplicates"], queryFn: () => apiGet<DuplicateGroup[]>("/admin/athletes/duplicates") });
+  const groups = q.isError ? [] : (q.data ?? []);
+  if (groups.length === 0) return null;
+  return (
+    <section className="animate-fade-up space-y-3 rounded-xl border border-gold/60 bg-gold-soft/50 p-4" data-testid="athlete-duplicates">
+      <p className="flex items-center gap-2 font-semibold text-gold-ink">
+        <AlertTriangle className="size-4" /> Possibili doppioni ({groups.length})
+      </p>
+      <ul className="space-y-2">
+        {groups.map((g) => {
+          // keep the oldest active account, merge the newest
+          const sorted = [...g.athletes].sort((a, b) => Number(b.is_active) - Number(a.is_active) || a.created_at.localeCompare(b.created_at));
+          const keep = sorted[0];
+          return (
+            <li key={`${g.reason}-${g.key}`} className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm" data-testid={`duplicate-group-${g.key}`}>
+              <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">{g.reason === "name" ? "Stesso nome" : "Stessa email"}</span>
+              <span className="min-w-0 flex-1">
+                {sorted.map((a) => (
+                  <span key={a.id} className="mr-3 inline-block">
+                    <strong>{a.first_name} {a.last_name}</strong> <span className="font-mono text-xs text-muted-foreground">{a.code}</span>
+                    <span className="block text-xs text-muted-foreground">{a.email || "senza email"}{a.is_active ? "" : " · disattivato"}</span>
+                  </span>
+                ))}
+              </span>
+              {sorted.slice(1).map((dup) => (
+                <Button key={dup.id} size="sm" variant="outline" onClick={() => onMerge(dup, keep.id)} data-testid={`duplicate-merge-${dup.code}`}>
+                  <GitMerge className="size-4" /> Unisci {dup.code} in {keep.code}
+                </Button>
+              ))}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export function AthletesTab() {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<"active" | "inactive" | "all">("active");
   const [mergeDup, setMergeDup] = useState<Athlete | null>(null);
+  const [mergeKeep, setMergeKeep] = useState("");
   const [mailOpen, setMailOpen] = useState(false);
   const { data: categories = [] } = useCategories();
   const proposed = useProposed();
@@ -62,12 +102,19 @@ export function AthletesTab() {
       toast.success(a.is_active ? "Atleta riattivato" : "Atleta disattivato: non può più accedere né usare la tessera");
       void queryClient.invalidateQueries({ queryKey: ["athletes"] });
       void queryClient.invalidateQueries({ queryKey: PROPOSED_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["athlete-duplicates"] });
     },
     onError: (e) => toast.error(errMsg(e)),
   });
 
   return (
     <div className="space-y-4">
+      <DuplicatesPanel
+        onMerge={(dup, keepId) => {
+          setMergeKeep(keepId);
+          setMergeDup(dup);
+        }}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cerca per nome o codice" className="w-full sm:max-w-60" data-testid="admin-athlete-search" />
         <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls} aria-label="Categoria" data-testid="admin-athlete-category-filter">
@@ -150,7 +197,7 @@ export function AthletesTab() {
                 <TableCell className="tnum text-muted-foreground">{dateTime(a.created_at).slice(0, 10)}</TableCell>
                 <TableCell className="whitespace-nowrap text-right">
                   {!a.merged_into && (
-                    <Button variant="ghost" size="sm" onClick={() => setMergeDup(a)} data-testid={`admin-athlete-merge-${a.code}`}>
+                    <Button variant="ghost" size="sm" onClick={() => { setMergeKeep(""); setMergeDup(a); }} data-testid={`admin-athlete-merge-${a.code}`}>
                       <GitMerge className="size-4" /> Unisci
                     </Button>
                   )}
@@ -175,7 +222,7 @@ export function AthletesTab() {
           </TableBody>
         </Table>
       </div>
-      <MergeDialog dup={mergeDup} onClose={() => setMergeDup(null)} />
+      <MergeDialog dup={mergeDup} suggestKeepId={mergeKeep} onClose={() => setMergeDup(null)} />
       <EmailFilteredDialog filter={{ q, category, role, status }} count={rows.length} open={mailOpen} onClose={() => setMailOpen(false)} />
     </div>
   );

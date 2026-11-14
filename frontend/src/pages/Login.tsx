@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,30 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Crest from "@/components/Crest";
 import ForgotPasswordDialog from "@/components/ForgotPasswordDialog";
 import { AthleteFields, Field, MerchantFields } from "@/components/ProfileFields";
-import { apiPost } from "@/lib/api";
+import { ApiError, apiPost } from "@/lib/api";
 import { EMPTY_MERCHANT, errMsg } from "@/lib/format";
 import { beginSession, homeFor, useAssociation, useMe } from "@/lib/session";
-import type { AthleteRegister, Me, MerchantRegister } from "@/lib/types";
-
-interface DemoLogin {
-  label: string;
-  email: string;
-  password: string;
-  testid: string;
-}
-
-// Demo accounts come from frontend/.env and only exist in the dev preview:
-// in a production build `import.meta.env.DEV` is false and this branch is dropped.
-function loadDemoLogins(): DemoLogin[] {
-  if (!import.meta.env.DEV) return [];
-  try {
-    const parsed: unknown = JSON.parse(import.meta.env.VITE_DEMO_LOGINS ?? "[]");
-    return Array.isArray(parsed) ? (parsed as DemoLogin[]) : [];
-  } catch {
-    return [];
-  }
-}
-const DEMO = loadDemoLogins();
+import type { AthleteRegister, Me, MerchantRegister, RegisterResult } from "@/lib/types";
 
 function Credentials({ email, password, setEmail, setPassword, prefix }: { email: string; password: string; setEmail: (v: string) => void; setPassword: (v: string) => void; prefix: string }) {
   return (
@@ -59,6 +39,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [ath, setAth] = useState<AthleteRegister>({ email: "", password: "", first_name: "", last_name: "", category_id: "", category_custom: "", team_role: "", photo: null, notify_new_partners: true });
   const [mer, setMer] = useState<MerchantRegister>({ ...EMPTY_MERCHANT, account_email: "", password: "" });
+  // address waiting for confirmation: after sign-up, or when login is refused because it isn't confirmed yet
+  const [pending, setPending] = useState<string | null>(null);
 
   const onSuccess = (data: Me) => {
     beginSession(data);
@@ -67,9 +49,26 @@ export default function Login() {
   };
   const onError = (e: unknown) => toast.error(errMsg(e));
 
-  const login = useMutation({ mutationFn: (b: { email: string; password: string }) => apiPost<Me>("/auth/login", b), onSuccess, onError });
-  const regAth = useMutation({ mutationFn: (b: AthleteRegister) => apiPost<Me>("/auth/register/athlete", b), onSuccess, onError });
-  const regMer = useMutation({ mutationFn: (b: MerchantRegister) => apiPost<Me>("/auth/register/merchant", b), onSuccess, onError });
+  const onRegistered = (r: RegisterResult) => {
+    setPending(r.email);
+    setTab("accedi");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const login = useMutation({
+    mutationFn: (b: { email: string; password: string }) => apiPost<Me>("/auth/login", b),
+    onSuccess,
+    onError: (e, b) => {
+      if (e instanceof ApiError && e.status === 403 && errMsg(e).startsWith("Conferma")) setPending(b.email.toLowerCase());
+      onError(e);
+    },
+  });
+  const regAth = useMutation({ mutationFn: (b: AthleteRegister) => apiPost<RegisterResult>("/auth/register/athlete", b), onSuccess: onRegistered, onError });
+  const regMer = useMutation({ mutationFn: (b: MerchantRegister) => apiPost<RegisterResult>("/auth/register/merchant", b), onSuccess: onRegistered, onError });
+  const resend = useMutation({
+    mutationFn: (to: string) => apiPost<{ ok: boolean }>("/auth/resend-verification", { email: to }),
+    onSuccess: () => toast.success("Se l'account è in attesa di conferma, ti abbiamo inviato un nuovo link"),
+    onError,
+  });
 
   if (me) return <Navigate to={homeFor(me.user.role)} replace />;
 
@@ -116,6 +115,21 @@ export default function Login() {
               <TabsTrigger value="commerciante" data-testid="tab-register-merchant">Registrati commerciante</TabsTrigger>
             </TabsList>
 
+            {pending && (
+              <div className="mt-6 flex animate-fade-up gap-3 rounded-xl border border-primary/30 bg-accent/60 p-4" role="status" data-testid="verify-email-pending">
+                <MailCheck className="mt-0.5 size-5 shrink-0 text-primary" />
+                <div className="min-w-0 space-y-1 text-sm">
+                  <p className="font-semibold text-primary">Conferma la tua email per attivare l'account</p>
+                  <p className="text-muted-foreground">
+                    Abbiamo inviato un link a <strong className="break-all text-foreground">{pending}</strong>. Aprilo per completare la registrazione (controlla anche lo spam). Il link vale 48 ore.
+                  </p>
+                  <Button variant="link" size="sm" className="h-auto px-0" disabled={resend.isPending} onClick={() => resend.mutate(pending)} data-testid="verify-email-resend-button">
+                    {resend.isPending && <Loader2 className="size-3.5 animate-spin" />} Non è arrivata? Invia di nuovo
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <TabsContent value="accedi" className="mt-6 space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">Accedi alla tua area</h2>
@@ -134,24 +148,12 @@ export default function Login() {
                 </Button>
               </form>
               <ForgotPasswordDialog initialEmail={email} />
-              {DEMO.length > 0 && (
-              <div className="rounded-xl border border-dashed p-4" data-testid="demo-logins">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account dimostrativi</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {DEMO.map((d) => (
-                    <Button key={d.testid} variant="outline" size="sm" disabled={login.isPending} onClick={() => login.mutate({ email: d.email, password: d.password })} data-testid={d.testid}>
-                      {d.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              )}
             </TabsContent>
 
             <TabsContent value="atleta" className="mt-6 space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight">Crea il tuo profilo atleta</h2>
-                <p className="text-sm text-muted-foreground">Riceverai subito la tessera digitale con il QR personale.</p>
+                <p className="text-sm text-muted-foreground">Dopo la conferma dell'email riceverai la tessera digitale con il QR personale.</p>
               </div>
               <form className="space-y-5 rounded-xl border bg-card p-5" onSubmit={submitAthlete}>
                 <AthleteFields value={ath} onChange={(v) => setAth({ ...ath, ...v })} />

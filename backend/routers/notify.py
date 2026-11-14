@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from lib.auth import require_role
+from lib.dates import today_iso
 from lib.db import db
 from lib.email import EmailError, send_email
 from lib.auth import hash_password
@@ -303,3 +304,98 @@ async def cron_promo_digest(request: Request, background: BackgroundTasks):
 @router.post("/admin/promo-digest/send", response_model=DigestResult, dependencies=[Depends(require_role("admin"))])
 async def admin_send_digest(request: Request):
     return await send_promo_digest(public_base(request))
+
+
+# ---------- email verification for self-registered accounts ----------
+VERIFY_HOURS = 48
+
+
+async def send_verification(user: dict, base: Optional[str]) -> None:
+    """One active link per user; throttled to one email every 2 minutes."""
+    if not base or is_demo(user["email"]):
+        return
+    if await db.email_tokens.find_one({"user_id": user["id"], "created_at": {"$gt": now_utc() - timedelta(minutes=2)}}):
+        return
+    token = secrets.token_urlsafe(32)
+    await db.email_tokens.update_many({"user_id": user["id"], "used": False}, {"$set": {"used": True}})
+    await db.email_tokens.insert_one({"token_hash": token_hash(token), "user_id": user["id"], "used": False,
+                                      "expires_at": now_utc() + timedelta(hours=VERIFY_HOURS), "created_at": now_utc()})
+    assoc_name = await _assoc_name()
+    inner = (
+        '<h2 style="margin:0 0 12px;color:#1e3a8a">Conferma il tuo indirizzo email</h2>'
+        "<p>Grazie per esserti registrato all'App Noi di Leyni. Per attivare l'account tocca il pulsante qui sotto.</p>"
+        + _button(f"{base}/verifica-email?token={token}", "Conferma email e accedi")
+        + f'<p style="color:#64748b;font-size:12px">Il link vale {VERIFY_HOURS} ore. Se non sei stato tu, ignora questa email.</p>'
+    )
+    try:
+        await send_email(to=[user["email"]], subject="Conferma la tua email · App Noi di Leyni", html=_frame(assoc_name, inner))
+    except (EmailError, ValueError) as e:
+        logger.warning("verification email to %s failed: %s", user["email"], e)
+
+
+# ---------- new promotion of a favourite partner ----------
+def _promo_live(m: dict) -> bool:
+    today = today_iso()
+    return bool(m.get("promo_title")) and (not m.get("promo_start") or m["promo_start"] <= today) and (
+        not m.get("promo_end") or today <= m["promo_end"])
+
+
+async def alert_favorite_promo(merchant_id: str, base: Optional[str]) -> int:
+    """Emails athletes who starred this partner, once per promotion (title+dates), as soon as it is live."""
+    m = await db.merchants.find_one({"id": merchant_id, "published": {"$ne": False}}, {"_id": 0})
+    if not m or not _promo_live(m):
+        return 0
+    key = f'{m["promo_title"]}|{m.get("promo_start", "")}|{m.get("promo_end", "")}'
+    claimed = await db.merchants.find_one_and_update({"id": merchant_id, "promo_alert_key": {"$ne": key}},
+                                                     {"$set": {"promo_alert_key": key, "promo_alert_at": now_utc()}})
+    if not claimed:
+        return 0
+    fans = [a["user_id"] async for a in db.athletes.find(
+        {"favorite_merchant_ids": merchant_id, "is_active": {"$ne": False}, "notify_new_partners": {"$ne": False}}, {"user_id": 1})]
+    emails = [u["email"] async for u in db.users.find({"id": {"$in": fans}}, {"email": 1}) if not is_demo(u["email"])]
+    if not emails:
+        return 0
+    assoc_name = await _assoc_name()
+    until = f' · fino al {"/".join(reversed(m["promo_end"].split("-")))}' if m.get("promo_end") else ""
+    inner = (
+        f'<p style="margin:0 0 6px;color:#a16207;font-weight:bold">Nuova promozione da un tuo preferito</p>'
+        f'<h2 style="margin:0 0 8px;color:#1e3a8a">{escape(m["business_name"])}: {escape(m["promo_title"])}</h2>'
+        f'<p>{escape(m.get("promo_description", ""))}</p>'
+        f'<p style="color:#64748b;font-size:13px">Sconto convenzione {m.get("discount_percent", 0):g}%{until}</p>'
+        + (_button(f"{base}/atleta/convenzioni", "Vedi la promozione") if base else "")
+    )
+    sent = 0
+    for e in emails:
+        try:
+            await send_email(to=[e], subject=f'{m["business_name"]}: {m["promo_title"]}', html=_frame(assoc_name, inner))
+            sent += 1
+        except (EmailError, ValueError) as err:
+            logger.warning("favourite promo alert to %s failed: %s", e, err)
+    return sent
+
+
+async def run_favorite_promo_alerts(base: Optional[str]) -> None:
+    async for m in db.merchants.find({"published": {"$ne": False}, "promo_title": {"$nin": ["", None]}}, {"id": 1}):
+        await alert_favorite_promo(m["id"], base or os.environ.get("APP_URL"))
+
+
+@router.post("/cron/favorite-promos")
+async def cron_favorite_promos(request: Request, background: BackgroundTasks):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    secret = os.environ.get("WEBHOOK_CRON_SECRET", "")
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    if not secret or not token or not hmac.compare_digest(token, secret):
+        raise HTTPException(status_code=401, detail="unauthorized")
+    try:
+        envelope = await request.json()
+    except Exception:
+        envelope = None
+    if envelope is not None and not isinstance(envelope, dict):
+        raise HTTPException(status_code=400, detail="invalid body")
+    run_id = request.headers.get("x-webhook-id") or (envelope or {}).get("run_id") or now_utc().isoformat()
+    if await db.cron_runs.find_one({"run_id": run_id}):
+        return {"accepted": True, "duplicate": True}
+    await db.cron_runs.insert_one({"run_id": run_id, "job": "favorite-promos", "created_at": now_utc()})
+    background.add_task(run_favorite_promo_alerts, public_base(request))
+    return {"accepted": True}

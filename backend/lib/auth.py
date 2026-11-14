@@ -66,6 +66,8 @@ async def current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Utente non trovato")
     if user.get("is_active") is False:
         raise HTTPException(status_code=401, detail="Account disattivato: contatta il direttivo")
+    if user.get("email_verified") is False:
+        raise HTTPException(status_code=401, detail="Email non ancora confermata")
     return user
 
 

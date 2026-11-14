@@ -99,3 +99,15 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - MerchantList: each card is a button (merchant-card-{id}) with chevron + "Vedi sconto e dettagli" → MerchantDetail dialog (merchant-detail-dialog: logo, discount block, promo, description, gallery, map/phone links). Hints: athlete-merchants-hint (AthleteCard), convenzioni-hint.
 - Logos always object-contain on white (Logo component, Crest, ImageUpload without crop). ImageUpload crop prop: "round" (default for round photos, 480²), "square" (hero 1200²), "landscape" 4:3 (event photos 1600×1200) via PhotoCropDialog(aspect, round, outWidth).
 - index.html viewport-fit=cover + format-detection; .pt-safe/.px-safe utilities (header, landing header, bottom nav); body overflow-x clip, no tap highlight, overscroll none; native selects text-base on phones (no iOS zoom). Manifest: id, display_override, shortcuts, theme #1e3a8a.
+
+## Preferiti e vicino a me
+- athletes.favorite_merchant_ids. GET /api/athletes/me/favorites, PUT/DELETE /api/athletes/me/favorites/{merchant_id} (athlete only; 404 unknown merchant; idempotent). Cached by SW.
+- MerchantList: star button per card (merchant-fav-{id}, optimistic), favourites always first (also in the limited list on the card page and landing for athletes); "Vicino a me" (merchant-near-me-button) uses browser geolocation + haversine on merchant lat/lng, shows merchant-distance-{id}; merchants without coordinates go last.
+
+## Verifica email, doppioni, percorso, avvisi promo preferiti, niente demo
+- Self-registration (athlete + merchant) creates users.email_verified=False, no session; returns RegisterResult {pending_verification, email}; background send_verification (notify.py) → link /verifica-email?token= (48h, db.email_tokens hashed, throttle 2 min). Login 403 "Conferma prima la tua email…"; current_user rejects unverified. POST /api/auth/verify-email {token} → verified + session (+ announce merchant). POST /api/auth/resend-verification {email} generic ok. set-password (invites/reset) marks verified. Users without the flag (older/admin-created) are treated as verified.
+- Login page: no demo buttons (VITE_DEMO_LOGINS no longer read); pending banner verify-email-pending + resend. Page VerifyEmail.tsx.
+- seed.py: only indexes, association, default categories, first admin from env.
+- GET /api/admin/athletes/duplicates → groups by name (accents/order ignored) or email (case, dots for gmail, +tag). DuplicatesPanel on Athletes tab with one-tap merge (MergeDialog suggestKeepId; keeps oldest active).
+- MerchantDetail "Portami qui": Google Maps directions walking/driving (merchant-directions-walking|driving).
+- Favourites: "Preferiti (N)" chip filter (sector-filter-preferiti). alert_favorite_promo(merchant) emails athletes who starred the partner (active, opted in, non-demo) once per promo key (title|start|end) when live; triggered on merchant/admin save + daily cron /api/cron/favorite-promos 09:30.

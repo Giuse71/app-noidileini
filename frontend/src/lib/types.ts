@@ -343,3 +343,18 @@ export interface AthleteEmailResult {
   recipients: number;
   skipped: number;
 }
+
+export interface Favorites {
+  merchant_ids: string[];
+}
+
+export interface RegisterResult {
+  pending_verification: boolean;
+  email: string;
+}
+
+export interface DuplicateGroup {
+  reason: "name" | "email";
+  key: string;
+  athletes: Athlete[];
+}

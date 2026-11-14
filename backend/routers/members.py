@@ -2,6 +2,7 @@
 
 import logging
 import re
+import unicodedata
 from html import escape
 from typing import List, Literal, Optional
 
@@ -16,6 +17,8 @@ from lib.email import EmailError, send_email
 from lib.storage import discard, save_gallery, save_image
 from lib.geocode import geocode, resolve_coords
 from models.schemas import (
+    DuplicateGroup,
+    Favorites,
     AthleteEmailIn,
     AthleteEmailResult,
     AthleteFilter,
@@ -35,7 +38,7 @@ from models.schemas import (
     now_utc,
 )
 from routers.auth import new_athlete_code
-from routers.notify import _assoc_name as assoc_name_of, _frame as frame_email, announce_merchant, is_demo, public_base
+from routers.notify import _assoc_name as assoc_name_of, _frame as frame_email, alert_favorite_promo, announce_merchant, is_demo, public_base
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["members"])
@@ -123,6 +126,41 @@ async def set_athlete_status(id: str, body: AthleteStatusIn, _: dict = Depends(r
     return Athlete(**doc)
 
 
+def _norm_name(first: str, last: str) -> str:
+    raw = unicodedata.normalize("NFKD", f"{first} {last}".lower())
+    words = sorted("".join(c for c in raw if c.isalnum() or c.isspace()).split())  # "Rossi Giulia" == "Giulia Rossi"
+    return " ".join(words)
+
+
+def _norm_email(email: str) -> str:
+    local, _, domain = email.lower().partition("@")
+    local = local.split("+", 1)[0]
+    if domain in ("gmail.com", "googlemail.com"):
+        local, domain = local.replace(".", ""), "gmail.com"
+    return f"{local}@{domain}"
+
+
+@router.get("/admin/athletes/duplicates", response_model=List[DuplicateGroup], dependencies=[Depends(require_role("admin"))])
+async def athlete_duplicates():
+    """Possible duplicates: same first+last name (any order, accents ignored) or same email ignoring dots/+tags."""
+    docs = await db.athletes.find({"merged_into": None}, {"_id": 0}).to_list(5000)
+    emails = {u["id"]: u["email"] async for u in db.users.find({"id": {"$in": [d["user_id"] for d in docs]}}, {"_id": 0, "id": 1, "email": 1})}
+    by: dict[tuple[str, str], list[dict]] = {}
+    for d in docs:
+        d["email"] = emails.get(d["user_id"], "")
+        by.setdefault(("name", _norm_name(d["first_name"], d["last_name"])), []).append(d)
+        if d["email"]:
+            by.setdefault(("email", _norm_email(d["email"])), []).append(d)
+    groups, seen = [], set()
+    for (reason, key), items in by.items():
+        ids = frozenset(i["id"] for i in items)
+        if len(ids) < 2 or ids in seen:
+            continue
+        seen.add(ids)
+        groups.append(DuplicateGroup(reason=reason, key=key, athletes=[Athlete(**i) for i in items]))
+    return groups
+
+
 @router.post("/admin/athletes/merge", response_model=AthleteMergeResult)
 async def merge_athletes(body: AthleteMergeIn, _: dict = Depends(require_role("admin"))):
     """Moves purchases and family cards of a duplicate account onto the kept one; the duplicate is deactivated (not deleted)."""
@@ -201,6 +239,33 @@ async def _my_athlete_id(user: dict) -> str:
     if not doc:
         raise HTTPException(status_code=404, detail="Profilo non trovato")
     return doc["id"]
+
+
+# ---------- favourite partners (athlete only) ----------
+@router.get("/athletes/me/favorites", response_model=Favorites)
+async def my_favorites(user: dict = Depends(require_role("athlete"))):
+    doc = await db.athletes.find_one({"user_id": user["id"]}, {"_id": 0, "favorite_merchant_ids": 1}) or {}
+    return Favorites(merchant_ids=doc.get("favorite_merchant_ids", []))
+
+
+@router.put("/athletes/me/favorites/{merchant_id}", response_model=Favorites)
+async def add_favorite(merchant_id: str, user: dict = Depends(require_role("athlete"))):
+    if not await db.merchants.find_one({"id": merchant_id}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Commerciante non trovato")
+    doc = await db.athletes.find_one_and_update(
+        {"user_id": user["id"]}, {"$addToSet": {"favorite_merchant_ids": merchant_id}},
+        projection={"_id": 0, "favorite_merchant_ids": 1}, return_document=True,
+    )
+    return Favorites(merchant_ids=(doc or {}).get("favorite_merchant_ids", []))
+
+
+@router.delete("/athletes/me/favorites/{merchant_id}", response_model=Favorites)
+async def remove_favorite(merchant_id: str, user: dict = Depends(require_role("athlete"))):
+    doc = await db.athletes.find_one_and_update(
+        {"user_id": user["id"]}, {"$pull": {"favorite_merchant_ids": merchant_id}},
+        projection={"_id": 0, "favorite_merchant_ids": 1}, return_document=True,
+    )
+    return Favorites(merchant_ids=(doc or {}).get("favorite_merchant_ids", []))
 
 
 @router.get("/athletes/me/family", response_model=List[FamilyMember])
@@ -311,6 +376,7 @@ async def admin_update_merchant(id: str, body: AdminMerchantSave, request: Reque
     doc = await db.merchants.find_one_and_update({"id": id}, {"$set": update}, projection={"_id": 0}, return_document=True)
     if body.published and not doc.get("announced_at"):
         background.add_task(announce_merchant, id, public_base(request))
+    background.add_task(alert_favorite_promo, id, public_base(request))
     return await _admin_merchant(doc)
 
 
@@ -323,7 +389,8 @@ async def my_merchant(user: dict = Depends(require_role("merchant"))):
 
 
 @router.put("/merchants/me", response_model=Merchant)
-async def update_my_merchant(body: MerchantUpdate, user: dict = Depends(require_role("merchant"))):
+async def update_my_merchant(body: MerchantUpdate, request: Request, background: BackgroundTasks,
+                             user: dict = Depends(require_role("merchant"))):
     current = await db.merchants.find_one({"user_id": user["id"]}, {"_id": 0}) or {}
     logo = await save_image(body.logo, kind="merchants", owner_user_id=user["id"], public=True, old=current.get("logo"))
     gallery = await save_gallery(body.gallery, owner_user_id=user["id"], old=current.get("gallery"))
@@ -332,4 +399,5 @@ async def update_my_merchant(body: MerchantUpdate, user: dict = Depends(require_
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Profilo non trovato")
+    background.add_task(alert_favorite_promo, doc["id"], public_base(request))
     return Merchant(**doc)

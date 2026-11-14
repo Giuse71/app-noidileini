@@ -16,8 +16,14 @@ const selectCls =
   "h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-base md:text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /** Merge a duplicate account (dup) into the one the board picks: purchases and family cards move, dup is deactivated. */
-export function MergeDialog({ dup, onClose }: { dup: Athlete | null; onClose: () => void }) {
+export function MergeDialog({ dup, onClose, suggestKeepId = "" }: { dup: Athlete | null; onClose: () => void; suggestKeepId?: string }) {
   const [keepId, setKeepId] = useState("");
+  const [lastSuggest, setLastSuggest] = useState("");
+  if (suggestKeepId !== lastSuggest) {
+    // preselect the other account of a detected duplicate pair
+    setLastSuggest(suggestKeepId);
+    setKeepId(suggestKeepId);
+  }
   const all = useQuery({
     queryKey: ["athletes", "merge-targets"],
     queryFn: () => apiGet<Athlete[]>("/athletes?status=all"),
@@ -29,6 +35,7 @@ export function MergeDialog({ dup, onClose }: { dup: Athlete | null; onClose: ()
     onSuccess: (r) => {
       toast.success(`Unito in ${r.kept.first_name} ${r.kept.last_name}: ${r.transactions} acquisti e ${r.family} familiari spostati`);
       void queryClient.invalidateQueries({ queryKey: ["athletes"] });
+      void queryClient.invalidateQueries({ queryKey: ["athlete-duplicates"] });
       setKeepId("");
       onClose();
     },
