@@ -111,3 +111,6 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - GET /api/admin/athletes/duplicates → groups by name (accents/order ignored) or email (case, dots for gmail, +tag). DuplicatesPanel on Athletes tab with one-tap merge (MergeDialog suggestKeepId; keeps oldest active).
 - MerchantDetail "Portami qui": Google Maps directions walking/driving (merchant-directions-walking|driving).
 - Favourites: "Preferiti (N)" chip filter (sector-filter-preferiti). alert_favorite_promo(merchant) emails athletes who starred the partner (active, opted in, non-demo) once per promo key (title|start|end) when live; triggered on merchant/admin save + daily cron /api/cron/favorite-promos 09:30.
+
+## Database
+- Preview MONGO_URL now points to MongoDB Atlas (cluster0.y8uydwi), db "app". Data copied from the old in-pod mongod with backend/copy_db.py (non-destructive upsert by _id; source SOURCE_MONGO_URL default mongodb://localhost:27017, target ATLAS_MONGO_URL, TARGET_DB_NAME default DB_NAME). JSON backup of the old DB in /app/backups/ (gitignored).

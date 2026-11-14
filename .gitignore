@@ -93,3 +93,4 @@ app.zip
 credentials.json
 *.key
 .credentials
+backups/

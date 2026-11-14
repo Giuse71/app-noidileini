@@ -1,0 +1,112 @@
+{
+  "iteration": 4,
+  "passed": 14,
+  "failed": 0,
+  "bugs": [],
+  "action_items": [
+    {
+      "note": "Minor non-blocking console warning (React duplicate key, value 'Under 13') observed in admin Athletes tab; cosmetic only, not a functional bug, no action required for the tested criteria."
+    }
+  ],
+  "retest_needed": false,
+  "checks": [
+    {
+      "criterion": "App runs on the new MongoDB Atlas database with all copied data (admin login, overview 24 txns, athletes tab, GET /api/merchants = 7)",
+      "name": "test_tscheck_atlas_seed_data.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "GET /api/auth/me -> 200 role=admin. GET /api/athletes?status=all -> 200, 30+ rows (copied 38-athlete dataset). GET /api/admin/merchants -> 200, 15+ rows (copied 16-merchant dataset). GET /api/merchants -> 200, exactly 7 published merchants."
+    },
+    {
+      "criterion": "App runs on the new MongoDB Atlas database with all copied data (UI)",
+      "name": "admin-overview-stats-render",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Logged in as admin@leinivolley.it/Admin2026!, landed on /admin. admin-stat-count >= 24 (24 transactions copied from Atlas, confirmed via GET /api/admin/transactions -> 200, len=24). Atleti tab shows admin-athlete-row-* rows. GET /api/merchants via page.request -> 7 items. No page errors."
+    },
+    {
+      "criterion": "No demo-account buttons on the login page",
+      "name": "login-no-demo-buttons",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "On /login: demo-logins, demo-admin, demo-athlete, demo-merchant all have count 0; full page body text contains no '@example.it' string."
+    },
+    {
+      "criterion": "New self-registered users must confirm their email before logging in (UI registration flow)",
+      "name": "register-athlete-shows-verify-pending",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Registered tscheck-regverify-<ts>@example.it via the 'Registrati atleta' tab; UI showed verify-email-pending banner with the email, stayed on /login (no session started); clicked verify-email-resend-button -> success toast. Fixture athlete deactivated afterwards via admin API."
+    },
+    {
+      "criterion": "New self-registered users must confirm their email before logging in (API)",
+      "name": "test_tscheck_email_verification.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "POST /auth/login for a freshly registered unverified athlete -> 403, detail starts with 'Conferma'. POST /auth/resend-verification for both the real unverified address and an unknown address -> 200 {ok:true} (no enumeration). Existing giulia.rossi@example.it (no email_verified flag) -> 200 login. Invalid token -> POST /auth/verify-email 400. 4 tests, all passed."
+    },
+    {
+      "criterion": "Email confirmation link works - invalid token shows 'Link non valido' (UI)",
+      "name": "verify-email-invalid-token",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "/verifica-email?token=tscheck-definitely-not-a-real-token rendered heading 'Link non valido' with verify-email-error detail and a working verify-email-login-link."
+    },
+    {
+      "criterion": "Email confirmation link works - valid token verifies + sets session, reuse fails (API)",
+      "name": "test_tscheck_email_verification.py::test_valid_token_verifies_and_reuse_fails",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Inserted an email_tokens doc (sha256 token_hash, used:false, future expiry) for a freshly registered tscheck athlete via direct Mongo write (per briefing instructions). POST /auth/verify-email -> 200 Me with matching email/role; GET /auth/me confirmed session cookie set; repeating POST /auth/verify-email with same token -> 400. Fixture athlete deactivated afterwards."
+    },
+    {
+      "criterion": "Board sees possible duplicate athletes with a quick merge (duplicates API + merchant forbidden)",
+      "name": "test_tscheck_athlete_duplicates.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Registered two tscheck athletes with identical first/last name. GET /admin/athletes/duplicates (admin) -> 200, a reason:'name' group containing both ids found. Same call as pizzeria@example.it (merchant) -> 403. Both fixture athletes deactivated afterwards."
+    },
+    {
+      "criterion": "Board sees possible duplicate athletes with a quick merge (Admin UI panel + preselected merge dialog)",
+      "name": "admin-duplicates-panel-merge",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Created 2 same-name tscheck athletes via API, logged in as admin, Atleti tab: athlete-duplicates panel visible, duplicate-merge-<dupCode> button present after search. Clicked it -> merge-dialog opened with merge-keep-select already valued to the keep account's id (preselected). Confirmed merge -> toast 'Unito in ...' shown."
+    },
+    {
+      "criterion": "'Portami qui' directions on partner detail",
+      "name": "merchant-directions-and-favorites",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "Opened merchant-card for Pizzeria -> merchant-detail-dialog contains merchant-directions-walking and merchant-directions-driving, hrefs matching https://www.google.com/maps/dir/?api=1&destination=...&travelmode=walking|driving."
+    },
+    {
+      "criterion": "Athletes save partners in favourites and filter them (UI toggle, persistence, filter chip)",
+      "name": "merchant-directions-and-favorites (same check, favourites section)",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "As giulia.rossi@example.it, toggled merchant-fav-<id> on a non-favourited partner (aria-pressed true), card moved to top of merchant-list; reloaded page -> state and order persisted (confirmed via GET /api/athletes/me/favorites too); sector-filter-preferiti chip reduced the list to exactly the favourited merchants. Original favourite state restored exactly afterwards (DELETE the one favourite this check added) and verified equal to the pre-check state."
+    },
+    {
+      "criterion": "Athletes save partners in favourites and filter them (API persistence)",
+      "name": "test_tscheck_athlete_favorites.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "Registered+verified (via direct email_tokens insert) a tscheck athlete. GET /athletes/me/favorites -> [] initially. PUT /athletes/me/favorites/{merchant_id} -> 200, id present. GET again -> 200, id still present (server-side persistence). DELETE -> 200, id removed. Fixture athlete deactivated afterwards."
+    },
+    {
+      "criterion": "Merchant profile save works and triggers favourite-promo alert hook without errors (GET/PUT /merchants/me)",
+      "name": "test_tscheck_merchant_profile_cron.py",
+      "lane": "backend",
+      "status": "passed",
+      "evidence": "As pizzeria@example.it: GET /merchants/me -> 200; PUT /merchants/me with the same body (minus server-managed fields) -> 200, business_name unchanged. POST /cron/favorite-promos without a bearer token -> 401 {detail:'unauthorized'}."
+    },
+    {
+      "criterion": "Merchant profile save works (UI)",
+      "name": "merchant-profile-location-picker-save",
+      "lane": "browser",
+      "status": "passed",
+      "evidence": "As pizzeria@example.it, /commerciante/profilo location-picker visible, repositioned the pin, clicked merchant-profile-save-button -> 'Dati attività aggiornati' toast shown. Original lat/lng restored via PUT /api/merchants/me afterwards."
+    }
+  ]
+}

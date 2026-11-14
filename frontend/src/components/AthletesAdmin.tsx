@@ -92,7 +92,7 @@ export function AthletesTab() {
   const list = useQuery({ queryKey: ["athletes", q, category, role, status], queryFn: () => apiGet<Athlete[]>(`/athletes?${params.toString()}`) });
   const rows = list.isError ? [] : (list.data ?? []);
   const categoryNames = useMemo(
-    () => [...categories.map((c) => c.name), ...(proposed.data ?? []).map((p) => p.name)],
+    () => [...new Set([...categories.map((c) => c.name), ...(proposed.data ?? []).map((p) => p.name)])],
     [categories, proposed.data],
   );
 
