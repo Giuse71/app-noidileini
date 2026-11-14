@@ -114,3 +114,10 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 
 ## Database
 - Preview MONGO_URL now points to MongoDB Atlas (cluster0.y8uydwi), db "app". Data copied from the old in-pod mongod with backend/copy_db.py (non-destructive upsert by _id; source SOURCE_MONGO_URL default mongodb://localhost:27017, target ATLAS_MONGO_URL, TARGET_DB_NAME default DB_NAME). JSON backup of the old DB in /app/backups/ (gitignored).
+
+## Supervisore, permessi Direttivo, doppia verifica
+- users.is_superadmin (role admin). lib/auth: AREAS (athletes, merchants, reports, content, board), users.permissions (None = all), area_for_path() maps admin API prefixes → area inside require_role (unmapped admin paths need all areas: fail-closed); require_super. build_me returns user.is_superadmin + areas.
+- routers/supervisor.py (/api/admin/supervisor): GET accounts?role=admin|merchant|athlete, PUT accounts/{id}/permissions {areas}, PATCH accounts/{id}/status {active}; supervisor cannot be blocked/removed (also DELETE /admin/admins/{id} → 403 on supervisor); audit in db.audit_log.
+- Admin.tsx: tabs filtered by areas (TAB_AREA), Supervisore tab (SupervisorTab.tsx) first for the supervisor.
+- 2FA by email for every role: login → db.login_codes (hashed 6-digit code, 10 min, 5 attempts) + send_login_code; POST /api/auth/login/verify {challenge_id, code, trust_device} → session + lv_trust cookie (30 days, skips the code); POST /api/auth/login/resend (45 s throttle). Demo addresses cannot log in. Login.tsx shows login-otp-form.
+- Supervisor account gi.mannone@gmail.com (was a merchant login for shop "Mirò": the shop was detached, merchants.user_id=None, detached_from kept).

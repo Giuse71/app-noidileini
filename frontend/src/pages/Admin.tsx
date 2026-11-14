@@ -15,6 +15,9 @@ import TransactionsTable from "@/components/TransactionsTable";
 import { AdminMerchantsTab, ReportsTab } from "@/components/AdminExtras";
 import RankingTab from "@/components/RankingTab";
 import BoardTab from "@/components/BoardTab";
+import SupervisorTab from "@/components/SupervisorTab";
+import { useMe } from "@/lib/session";
+import type { BoardArea } from "@/lib/types";
 import { AthletesTab, ProposedCategories } from "@/components/AthletesAdmin";
 import BachecaTab, { EmailTestCard } from "@/components/BachecaTab";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
@@ -277,38 +280,63 @@ function AssociationForm({ initial }: { initial: Association }) {
   );
 }
 
+// tab -> board area needed (overview needs every area, like the stats it shows)
+const TAB_AREA: Record<string, BoardArea | "all"> = {
+  overview: "all", transactions: "reports", athletes: "athletes", merchants: "merchants", categories: "content",
+  ranking: "reports", reports: "reports", association: "content", bacheca: "content", board: "board",
+};
+
 export default function Admin() {
   const assoc = useAssociation();
+  const { data: me } = useMe();
+  const areas = me?.user.areas ?? [];
+  const can = (tab: string) => TAB_AREA[tab] === "all" ? areas.length === 5 : areas.includes(TAB_AREA[tab] as BoardArea);
+  const firstTab = me?.user.is_superadmin ? "supervisor" : (Object.keys(TAB_AREA).find(can) ?? "overview");
   return (
     <div className="space-y-6">
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-gold-ink">Portale direttivo</p>
         <h1 className="text-2xl font-semibold tracking-tight">Convenzione Sponsor · {assoc.data?.name ?? "Leinì Volley"}</h1>
       </div>
-      <Tabs defaultValue="overview">
+      <Tabs key={firstTab} defaultValue={firstTab}>
         <div className="overflow-x-auto">
           <TabsList data-testid="admin-tabs">
-            <TabsTrigger value="overview" data-testid="admin-tab-overview">Panoramica</TabsTrigger>
-            <TabsTrigger value="transactions" data-testid="admin-tab-transactions">Transazioni</TabsTrigger>
-            <TabsTrigger value="athletes" data-testid="admin-tab-athletes"><Users className="size-4" /> Atleti</TabsTrigger>
-            <TabsTrigger value="merchants" data-testid="admin-tab-merchants"><Store className="size-4" /> Commercianti</TabsTrigger>
-            <TabsTrigger value="categories" data-testid="admin-tab-categories">Categorie</TabsTrigger>
-            <TabsTrigger value="ranking" data-testid="admin-tab-ranking">Classifica sponsor</TabsTrigger>
-            <TabsTrigger value="reports" data-testid="admin-tab-reports">Report mensili</TabsTrigger>
-            <TabsTrigger value="association" data-testid="admin-tab-association">Associazione</TabsTrigger>
-            <TabsTrigger value="bacheca" data-testid="admin-tab-bacheca">Notizie e foto</TabsTrigger>
-            <TabsTrigger value="board" data-testid="admin-tab-board">Direttivo</TabsTrigger>
+            {me?.user.is_superadmin && (
+              <TabsTrigger value="supervisor" data-testid="admin-tab-supervisor">Supervisore</TabsTrigger>
+            )}
+            {can("overview") && (
+            <TabsTrigger value="overview" data-testid="admin-tab-overview">Panoramica</TabsTrigger>)}
+            {can("transactions") && (
+            <TabsTrigger value="transactions" data-testid="admin-tab-transactions">Transazioni</TabsTrigger>)}
+            {can("athletes") && (
+            <TabsTrigger value="athletes" data-testid="admin-tab-athletes"><Users className="size-4" /> Atleti</TabsTrigger>)}
+            {can("merchants") && (
+            <TabsTrigger value="merchants" data-testid="admin-tab-merchants"><Store className="size-4" /> Commercianti</TabsTrigger>)}
+            {can("categories") && (
+            <TabsTrigger value="categories" data-testid="admin-tab-categories">Categorie</TabsTrigger>)}
+            {can("ranking") && (
+            <TabsTrigger value="ranking" data-testid="admin-tab-ranking">Classifica sponsor</TabsTrigger>)}
+            {can("reports") && (
+            <TabsTrigger value="reports" data-testid="admin-tab-reports">Report mensili</TabsTrigger>)}
+            {can("association") && (
+            <TabsTrigger value="association" data-testid="admin-tab-association">Associazione</TabsTrigger>)}
+            {can("bacheca") && (
+            <TabsTrigger value="bacheca" data-testid="admin-tab-bacheca">Notizie e foto</TabsTrigger>)}
+            {can("board") && (
+            <TabsTrigger value="board" data-testid="admin-tab-board">Direttivo</TabsTrigger>)}
           </TabsList>
         </div>
-        <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
-        <TabsContent value="transactions" className="mt-6"><TransactionsReport /></TabsContent>
-        <TabsContent value="athletes" className="mt-6"><AthletesTab /></TabsContent>
-        <TabsContent value="merchants" className="mt-6"><AdminMerchantsTabWrapper /></TabsContent>
-        <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>
-        <TabsContent value="ranking" className="mt-6"><RankingTab /></TabsContent>
-        <TabsContent value="board" className="mt-6"><BoardTab /></TabsContent>
-        <TabsContent value="bacheca" className="mt-6"><BachecaTab /></TabsContent>
-        <TabsContent value="reports" className="mt-6 space-y-6"><EmailTestCard /><ReportsTab /></TabsContent>
+        {me?.user.is_superadmin && <TabsContent value="supervisor" className="mt-6"><SupervisorTab /></TabsContent>}
+        {can("overview") && <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>}
+        {can("transactions") && <TabsContent value="transactions" className="mt-6"><TransactionsReport /></TabsContent>}
+        {can("athletes") && <TabsContent value="athletes" className="mt-6"><AthletesTab /></TabsContent>}
+        {can("merchants") && <TabsContent value="merchants" className="mt-6"><AdminMerchantsTabWrapper /></TabsContent>}
+        {can("categories") && <TabsContent value="categories" className="mt-6"><CategoriesTab /></TabsContent>}
+        {can("ranking") && <TabsContent value="ranking" className="mt-6"><RankingTab /></TabsContent>}
+        {can("board") && <TabsContent value="board" className="mt-6"><BoardTab /></TabsContent>}
+        {can("bacheca") && <TabsContent value="bacheca" className="mt-6"><BachecaTab /></TabsContent>}
+        {can("reports") && <TabsContent value="reports" className="mt-6 space-y-6">{can("bacheca") && <EmailTestCard />}<ReportsTab /></TabsContent>}
+        {can("association") && (
         <TabsContent value="association" className="mt-6">
           {assoc.isLoading ? (
             <div className="h-64 animate-pulse rounded-xl bg-muted" />
@@ -316,6 +344,7 @@ export default function Admin() {
             <AssociationForm initial={assoc.data ?? EMPTY_ASSOC} />
           )}
         </TabsContent>
+        )}
       </Tabs>
     </div>
   );

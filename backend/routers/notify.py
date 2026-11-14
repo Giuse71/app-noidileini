@@ -119,8 +119,8 @@ async def _invite_admin(user: dict, base: str) -> None:
 
 @router.get("/admin/admins", response_model=list[AdminUser])
 async def list_admins(me: dict = Depends(require_role("admin"))):
-    docs = await db.users.find({"role": "admin"}, {"_id": 0, "id": 1, "email": 1, "created_at": 1}).sort("email", 1).to_list(200)
-    return [AdminUser(**d, is_me=d["id"] == me["id"]) for d in docs]
+    docs = await db.users.find({"role": "admin"}, {"_id": 0, "id": 1, "email": 1, "created_at": 1, "is_superadmin": 1}).sort("email", 1).to_list(200)
+    return [AdminUser(**{**d, "is_superadmin": d.get("is_superadmin") is True}, is_me=d["id"] == me["id"]) for d in docs]
 
 
 @router.post("/admin/admins", response_model=AdminUser, dependencies=[Depends(require_role("admin"))])
@@ -162,7 +162,10 @@ async def resend_admin_invite(id: str, request: Request):
 async def remove_admin(id: str, me: dict = Depends(require_role("admin"))):
     if id == me["id"]:
         raise HTTPException(status_code=400, detail="Non puoi rimuovere il tuo stesso account")
-    if not await db.users.find_one({"id": id, "role": "admin"}):
+    target = await db.users.find_one({"id": id, "role": "admin"}, {"is_superadmin": 1})
+    if target and target.get("is_superadmin") is True:
+        raise HTTPException(status_code=403, detail="Il supervisore non può essere rimosso dal Direttivo")
+    if not target:
         raise HTTPException(status_code=404, detail="Membro non trovato")
     if await db.users.count_documents({"role": "admin"}) <= 1:
         raise HTTPException(status_code=400, detail="Deve restare almeno un membro del direttivo")
@@ -399,3 +402,21 @@ async def cron_favorite_promos(request: Request, background: BackgroundTasks):
     await db.cron_runs.insert_one({"run_id": run_id, "job": "favorite-promos", "created_at": now_utc()})
     background.add_task(run_favorite_promo_alerts, public_base(request))
     return {"accepted": True}
+
+
+# ---------- login code (second factor) ----------
+OTP_MINUTES = 10
+
+
+async def send_login_code(email: str, code: str) -> None:
+    assoc_name = await _assoc_name()
+    inner = (
+        '<h2 style="margin:0 0 12px;color:#1e3a8a">Il tuo codice di accesso</h2>'
+        f'<p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1e3a8a;margin:16px 0">{code}</p>'
+        f"<p>Inseriscilo nell'app per completare l'accesso. Vale {OTP_MINUTES} minuti.</p>"
+        '<p style="color:#64748b;font-size:12px">Se non hai provato ad accedere, cambia subito la password.</p>'
+    )
+    try:
+        await send_email(to=[email], subject=f"{code} è il tuo codice di accesso · App Noi di Leyni", html=_frame(assoc_name, inner))
+    except (EmailError, ValueError) as e:
+        logger.warning("login code email to %s failed: %s", email, e)

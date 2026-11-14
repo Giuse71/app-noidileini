@@ -71,11 +71,11 @@ export default function BoardTab() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">
-                {u.email} {u.is_me && <span className="ml-1 rounded-full bg-gold-soft px-2 py-0.5 text-xs font-semibold text-gold-ink">tu</span>}
+                {u.email} {u.is_superadmin && <span className="ml-1 rounded-full bg-navy px-2 py-0.5 text-xs font-semibold text-gold">supervisore</span>} {u.is_me && <span className="ml-1 rounded-full bg-gold-soft px-2 py-0.5 text-xs font-semibold text-gold-ink">tu</span>}
               </p>
               {u.created_at && <p className="text-xs text-muted-foreground">Dal {dateTime(u.created_at).slice(0, 10)}</p>}
             </div>
-            {!u.is_me && (
+            {!u.is_me && !u.is_superadmin && (
               <>
                 <Button variant="ghost" size="sm" disabled={invite.isPending} onClick={() => invite.mutate(u.id)} data-testid={`board-invite-${u.email}`}>
                   <Mail className="size-4" /> Reinvia invito

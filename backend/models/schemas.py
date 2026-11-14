@@ -238,6 +238,45 @@ class UserOut(BaseModel):
     id: str
     email: str
     role: Role
+    is_superadmin: bool = False
+    areas: list[str] = []  # board areas this account may use (filled server-side)
+
+
+class LoginResult(BaseModel):
+    """Step 1 of login: either signed in (trusted device) or an email code is needed."""
+    otp_required: bool
+    challenge_id: Optional[str] = None
+    email_hint: Optional[str] = None
+    me: Optional["Me"] = None
+
+
+class OtpVerifyIn(BaseModel):
+    challenge_id: str = Field(min_length=10, max_length=100)
+    code: str = Field(min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+    trust_device: bool = True
+
+
+class OtpResendIn(BaseModel):
+    challenge_id: str = Field(min_length=10, max_length=100)
+
+
+class PermissionsIn(BaseModel):
+    areas: list[Literal["athletes", "merchants", "reports", "content", "board"]]
+
+
+class UserStatusIn(BaseModel):
+    active: bool
+
+
+class AccountOut(BaseModel):
+    id: str
+    email: str
+    role: Role
+    name: str = ""
+    is_active: bool = True
+    is_superadmin: bool = False
+    areas: list[str] = []
+    created_at: Optional[datetime] = None
 
 
 class PasswordTokenInfo(BaseModel):
@@ -268,6 +307,7 @@ class AdminUser(BaseModel):
     email: str
     created_at: Optional[datetime] = None
     is_me: bool = False
+    is_superadmin: bool = False
 
 
 class InviteResult(BaseModel):
@@ -393,3 +433,5 @@ class SendReportResult(BaseModel):
 
 AthleteMergeResult.model_rebuild()
 DuplicateGroup.model_rebuild()
+
+LoginResult.model_rebuild()

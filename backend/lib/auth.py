@@ -71,10 +71,79 @@ async def current_user(request: Request) -> dict:
     return user
 
 
+# ---------- board areas (per-member permissions, managed only by the supervisor) ----------
+AREAS = ("athletes", "merchants", "reports", "content", "board")
+# admin-only API paths -> area. Admin paths not listed need a member with ALL areas (fail-closed).
+_AREA_PREFIXES = (
+    ("/api/admin/athletes", "athletes"), ("/api/athletes", "athletes"),
+    ("/api/admin/merchants", "merchants"), ("/api/geocode", "merchants"),
+    ("/api/admin/reports", "reports"), ("/api/admin/rankings", "reports"), ("/api/admin/transactions", "reports"),
+    ("/api/admin/promo-digest", "reports"),
+    ("/api/admin/news", "content"), ("/api/news", "content"), ("/api/admin/event-photos", "content"),
+    ("/api/association", "content"), ("/api/categories", "content"), ("/api/admin/categories", "content"),
+    ("/api/admin/email", "content"),
+    ("/api/admin/admins", "board"),
+)
+
+
+def is_super(user: dict) -> bool:
+    return user.get("role") == "admin" and user.get("is_superadmin") is True
+
+
+def user_areas(user: dict) -> list[str]:
+    """None/absent permissions = autonomous board member with every area."""
+    if user.get("role") != "admin":
+        return []
+    perms = user.get("permissions")
+    return list(AREAS) if is_super(user) or perms is None else [a for a in perms if a in AREAS]
+
+
+def area_for_path(path: str) -> str | None:
+    for prefix, area in _AREA_PREFIXES:
+        if path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?"):
+            return area
+    return None
+
+
 def require_role(*roles: str):
-    async def dependency(user: dict = Depends(current_user)) -> dict:
+    async def dependency(request: Request, user: dict = Depends(current_user)) -> dict:
         if user["role"] not in roles:
             raise HTTPException(status_code=403, detail="Accesso non consentito")
+        if user["role"] == "admin" and not is_super(user):
+            areas = user_areas(user)
+            area = area_for_path(request.url.path)
+            if (area and area not in areas) or (area is None and len(areas) < len(AREAS)):
+                raise HTTPException(status_code=403, detail="Il supervisore non ti ha dato accesso a quest'area")
         return user
 
     return dependency
+
+
+async def require_super(user: dict = Depends(current_user)) -> dict:
+    if not is_super(user):
+        raise HTTPException(status_code=403, detail="Riservato al supervisore")
+    return user
+
+
+# ---------- trusted device for the email login code (30 days) ----------
+TRUST_COOKIE = "lv_trust"
+TRUST_DAYS = 30
+
+
+def set_trusted_device(response: Response, request: Request, user_id: str) -> None:
+    exp = datetime.now(timezone.utc) + timedelta(days=TRUST_DAYS)
+    token = jwt.encode({"sub": user_id, "typ": "trust", "exp": exp}, JWT_SECRET, algorithm="HS256")
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    response.set_cookie(TRUST_COOKIE, token, httponly=True, samesite="lax", secure=proto == "https",
+                        max_age=TRUST_DAYS * 86400, path="/")
+
+
+def is_trusted_device(request: Request, user_id: str) -> bool:
+    token = request.cookies.get(TRUST_COOKIE)
+    if not token:
+        return False
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        return False
+    return payload.get("typ") == "trust" and payload.get("sub") == user_id

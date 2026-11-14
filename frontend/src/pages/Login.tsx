@@ -12,7 +12,7 @@ import { AthleteFields, Field, MerchantFields } from "@/components/ProfileFields
 import { ApiError, apiPost } from "@/lib/api";
 import { EMPTY_MERCHANT, errMsg } from "@/lib/format";
 import { beginSession, homeFor, useAssociation, useMe } from "@/lib/session";
-import type { AthleteRegister, Me, MerchantRegister, RegisterResult } from "@/lib/types";
+import type { AthleteRegister, LoginResult, Me, MerchantRegister, RegisterResult } from "@/lib/types";
 
 function Credentials({ email, password, setEmail, setPassword, prefix }: { email: string; password: string; setEmail: (v: string) => void; setPassword: (v: string) => void; prefix: string }) {
   return (
@@ -41,6 +41,10 @@ export default function Login() {
   const [mer, setMer] = useState<MerchantRegister>({ ...EMPTY_MERCHANT, account_email: "", password: "" });
   // address waiting for confirmation: after sign-up, or when login is refused because it isn't confirmed yet
   const [pending, setPending] = useState<string | null>(null);
+  // second factor: emailed 6-digit code
+  const [otp, setOtp] = useState<{ id: string; hint: string } | null>(null);
+  const [code, setCode] = useState("");
+  const [trust, setTrust] = useState(true);
 
   const onSuccess = (data: Me) => {
     beginSession(data);
@@ -55,8 +59,14 @@ export default function Login() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const login = useMutation({
-    mutationFn: (b: { email: string; password: string }) => apiPost<Me>("/auth/login", b),
-    onSuccess,
+    mutationFn: (b: { email: string; password: string }) => apiPost<LoginResult>("/auth/login", b),
+    onSuccess: (r) => {
+      if (r.me) onSuccess(r.me);
+      else if (r.challenge_id) {
+        setCode("");
+        setOtp({ id: r.challenge_id, hint: r.email_hint ?? "" });
+      }
+    },
     onError: (e, b) => {
       if (e instanceof ApiError && e.status === 403 && errMsg(e).startsWith("Conferma")) setPending(b.email.toLowerCase());
       onError(e);
@@ -64,6 +74,16 @@ export default function Login() {
   });
   const regAth = useMutation({ mutationFn: (b: AthleteRegister) => apiPost<RegisterResult>("/auth/register/athlete", b), onSuccess: onRegistered, onError });
   const regMer = useMutation({ mutationFn: (b: MerchantRegister) => apiPost<RegisterResult>("/auth/register/merchant", b), onSuccess: onRegistered, onError });
+  const verifyOtp = useMutation({
+    mutationFn: () => apiPost<Me>("/auth/login/verify", { challenge_id: otp?.id, code, trust_device: trust }),
+    onSuccess,
+    onError,
+  });
+  const resendOtp = useMutation({
+    mutationFn: () => apiPost<{ ok: boolean }>("/auth/login/resend", { challenge_id: otp?.id }),
+    onSuccess: () => toast.success("Nuovo codice inviato"),
+    onError,
+  });
   const resend = useMutation({
     mutationFn: (to: string) => apiPost<{ ok: boolean }>("/auth/resend-verification", { email: to }),
     onSuccess: () => toast.success("Se l'account è in attesa di conferma, ti abbiamo inviato un nuovo link"),
@@ -96,7 +116,7 @@ export default function Login() {
         </div>
       </aside>
 
-      <main className="flex flex-col px-4 py-8 sm:px-8 lg:px-14">
+      <main className="flex min-w-0 flex-col px-4 py-8 sm:px-8 lg:px-14">
         <div className="mb-6 flex items-center gap-3 lg:hidden">
           <Link to="/" data-testid="login-mobile-home-link">
             <Crest logo={assoc?.logo} />
@@ -107,12 +127,16 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="mx-auto w-full max-w-2xl animate-fade-up">
+        <div className="mx-auto w-full min-w-0 max-w-2xl animate-fade-up">
           <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
             <TabsList className="w-full" data-testid="login-tabs">
               <TabsTrigger value="accedi" data-testid="tab-login">Accedi</TabsTrigger>
-              <TabsTrigger value="atleta" data-testid="tab-register-athlete">Registrati atleta</TabsTrigger>
-              <TabsTrigger value="commerciante" data-testid="tab-register-merchant">Registrati commerciante</TabsTrigger>
+              <TabsTrigger value="atleta" data-testid="tab-register-athlete">
+                <span className="sm:hidden">Atleta</span><span className="hidden sm:inline">Registrati atleta</span>
+              </TabsTrigger>
+              <TabsTrigger value="commerciante" data-testid="tab-register-merchant">
+                <span className="sm:hidden">Commerciante</span><span className="hidden sm:inline">Registrati commerciante</span>
+              </TabsTrigger>
             </TabsList>
 
             {pending && (
@@ -135,6 +159,52 @@ export default function Login() {
                 <h2 className="text-2xl font-semibold tracking-tight">Accedi alla tua area</h2>
                 <p className="text-sm text-muted-foreground">Atleti, commercianti e direttivo usano lo stesso accesso.</p>
               </div>
+              {otp ? (
+                <form
+                  className="space-y-4 rounded-xl border bg-card p-5 animate-fade-up"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    verifyOtp.mutate();
+                  }}
+                  data-testid="login-otp-form"
+                >
+                  <div className="rounded-xl border border-primary/30 bg-accent/60 p-4 text-sm">
+                    <p className="font-semibold text-primary">Doppia verifica</p>
+                    <p className="text-muted-foreground">
+                      Ti abbiamo inviato un codice di 6 cifre a <strong className="break-all text-foreground">{otp.hint}</strong>. Vale 10 minuti (controlla anche lo spam).
+                    </p>
+                  </div>
+                  <Field label="Codice di accesso" htmlFor="login-otp">
+                    <Input
+                      id="login-otp"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      maxLength={6}
+                      required
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="h-12 text-center font-mono text-2xl tracking-[0.5em]"
+                      data-testid="login-otp-input"
+                    />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={trust} onChange={(e) => setTrust(e.target.checked)} className="size-4 accent-primary" data-testid="login-otp-trust" />
+                    Ricorda questo dispositivo per 30 giorni
+                  </label>
+                  <Button type="submit" className="w-full" disabled={verifyOtp.isPending || code.length !== 6} data-testid="login-otp-submit">
+                    {verifyOtp.isPending && <Loader2 className="size-4 animate-spin" />} Conferma e accedi
+                  </Button>
+                  <div className="flex justify-between gap-2 text-sm">
+                    <Button type="button" variant="link" className="h-auto px-0" onClick={() => setOtp(null)} data-testid="login-otp-back">
+                      Indietro
+                    </Button>
+                    <Button type="button" variant="link" className="h-auto px-0" disabled={resendOtp.isPending} onClick={() => resendOtp.mutate()} data-testid="login-otp-resend">
+                      Invia un nuovo codice
+                    </Button>
+                  </div>
+                </form>
+              ) : (
               <form
                 className="space-y-5 rounded-xl border bg-card p-5"
                 onSubmit={(e) => {
@@ -147,7 +217,8 @@ export default function Login() {
                   {login.isPending && <Loader2 className="size-4 animate-spin" />} Accedi
                 </Button>
               </form>
-              <ForgotPasswordDialog initialEmail={email} />
+              )}
+              {!otp && <ForgotPasswordDialog initialEmail={email} />}
             </TabsContent>
 
             <TabsContent value="atleta" className="mt-6 space-y-6">

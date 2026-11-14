@@ -1,18 +1,25 @@
+import hmac
 import secrets
+from datetime import timedelta
 import string
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
-from lib.auth import clear_session, current_user, hash_password, set_session, verify_password
+from lib.auth import clear_session, current_user, hash_password, is_super, is_trusted_device, set_session, set_trusted_device, user_areas, verify_password
 from lib.categories import resolve_category
 from lib.db import db
 from lib.storage import save_gallery, save_image
 from lib.geocode import resolve_coords
-from routers.notify import announce_merchant, public_base, send_verification, token_hash
+from routers.notify import OTP_MINUTES, announce_merchant, is_demo, public_base, send_login_code, send_verification, token_hash
+
+OTP_ATTEMPTS = 5
 
 UNVERIFIED = "Conferma prima la tua email: apri il link che ti abbiamo inviato (controlla anche lo spam)"
 from models.schemas import (
+    LoginResult,
+    OtpResendIn,
+    OtpVerifyIn,
     EmailTokenIn,
     RegisterResult,
     ResendVerificationIn,
@@ -43,7 +50,7 @@ async def new_athlete_code() -> str:
 
 
 async def build_me(user: dict) -> Me:
-    me = Me(user=UserOut(**user))
+    me = Me(user=UserOut(**{**user, "is_superadmin": is_super(user), "areas": user_areas(user)}))
     if user["role"] == "athlete":
         doc = await db.athletes.find_one({"user_id": user["id"]}, {"_id": 0})
         if doc:
@@ -99,8 +106,8 @@ async def register_merchant(body: MerchantRegister, request: Request, background
     return RegisterResult(email=email)
 
 
-@router.post("/login", response_model=Me)
-async def login(body: LoginIn, request: Request, response: Response):
+@router.post("/login", response_model=LoginResult)
+async def login(body: LoginIn, request: Request, response: Response, background: BackgroundTasks):
     user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Email o password non corretti")
@@ -108,8 +115,54 @@ async def login(body: LoginIn, request: Request, response: Response):
         raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
     if user.get("email_verified") is False:
         raise HTTPException(status_code=403, detail=UNVERIFIED)
+    # second factor for everyone: a 6-digit code by email, skipped on a device trusted in the last 30 days
+    if is_trusted_device(request, user["id"]):
+        set_session(response, request, user["id"])
+        return LoginResult(otp_required=False, me=await build_me(user))
+    if is_demo(user["email"]):
+        raise HTTPException(status_code=403, detail="Questo indirizzo non può ricevere il codice di accesso")
+    challenge_id = secrets.token_urlsafe(24)
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.login_codes.update_many({"user_id": user["id"], "used": False}, {"$set": {"used": True}})
+    await db.login_codes.insert_one({"id": challenge_id, "user_id": user["id"], "code_hash": token_hash(code), "used": False,
+                                     "attempts": 0, "expires_at": now_utc() + timedelta(minutes=OTP_MINUTES), "created_at": now_utc()})
+    background.add_task(send_login_code, user["email"], code)
+    local, _, domain = user["email"].partition("@")
+    return LoginResult(otp_required=True, challenge_id=challenge_id, email_hint=f"{local[:2]}•••@{domain}")
+
+
+@router.post("/login/verify", response_model=Me)
+async def login_verify(body: OtpVerifyIn, request: Request, response: Response):
+    doc = await db.login_codes.find_one({"id": body.challenge_id, "used": False, "expires_at": {"$gt": now_utc()}})
+    if not doc or doc.get("attempts", 0) >= OTP_ATTEMPTS:
+        raise HTTPException(status_code=400, detail="Codice scaduto: torna indietro e accedi di nuovo")
+    if not hmac.compare_digest(doc["code_hash"], token_hash(body.code)):
+        await db.login_codes.update_one({"id": doc["id"]}, {"$inc": {"attempts": 1}})
+        left = OTP_ATTEMPTS - doc.get("attempts", 0) - 1
+        raise HTTPException(status_code=400, detail=f"Codice errato ({left} tentativi rimasti)" if left > 0 else "Troppi tentativi: accedi di nuovo")
+    await db.login_codes.update_one({"id": doc["id"]}, {"$set": {"used": True, "used_at": now_utc()}})
+    user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0})
+    if not user or user.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
     set_session(response, request, user["id"])
+    if body.trust_device:
+        set_trusted_device(response, request, user["id"])
     return await build_me(user)
+
+
+@router.post("/login/resend")
+async def login_resend(body: OtpResendIn, background: BackgroundTasks):
+    doc = await db.login_codes.find_one({"id": body.challenge_id, "used": False, "expires_at": {"$gt": now_utc()}})
+    if not doc:
+        raise HTTPException(status_code=400, detail="Codice scaduto: accedi di nuovo")
+    if doc["created_at"] > now_utc() - timedelta(seconds=45) and doc.get("resent_at", doc["created_at"]) > now_utc() - timedelta(seconds=45):
+        raise HTTPException(status_code=429, detail="Attendi qualche secondo prima di chiedere un nuovo codice")
+    user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0, "email": 1})
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    await db.login_codes.update_one({"id": doc["id"]}, {"$set": {"code_hash": token_hash(code), "attempts": 0, "resent_at": now_utc(),
+                                                                   "expires_at": now_utc() + timedelta(minutes=OTP_MINUTES)}})
+    background.add_task(send_login_code, user["email"], code)
+    return {"ok": True}
 
 
 @router.post("/verify-email", response_model=Me)

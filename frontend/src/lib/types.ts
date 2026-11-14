@@ -153,6 +153,7 @@ export interface AdminUser {
   email: string;
   created_at: string | null;
   is_me: boolean;
+  is_superadmin: boolean;
 }
 
 export interface ChangePasswordIn {
@@ -236,10 +237,32 @@ export interface MerchantRegister extends MerchantUpdate {
   password: string;
 }
 
+export type BoardArea = "athletes" | "merchants" | "reports" | "content" | "board";
+
 export interface UserOut {
   id: string;
   email: string;
   role: Role;
+  is_superadmin: boolean;
+  areas: BoardArea[];
+}
+
+export interface LoginResult {
+  otp_required: boolean;
+  challenge_id: string | null;
+  email_hint: string | null;
+  me: Me | null;
+}
+
+export interface AccountOut {
+  id: string;
+  email: string;
+  role: Role;
+  name: string;
+  is_active: boolean;
+  is_superadmin: boolean;
+  areas: BoardArea[];
+  created_at: string | null;
 }
 
 export interface Me {
