@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { apiGet, apiPatch, apiPut } from "@/lib/api";
 import { errMsg } from "@/lib/format";
 import { queryClient } from "@/lib/queryClient";
-import type { AccountOut, BoardArea } from "@/lib/types";
+import type { AccountOut, AuditEntry, BoardArea } from "@/lib/types";
+import { dateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const AREA_LABELS: Record<BoardArea, string> = {
@@ -29,6 +30,7 @@ function useStatus() {
     onSuccess: (a) => {
       toast.success(a.is_active ? "Account sbloccato" : "Account bloccato: non può più accedere");
       void queryClient.invalidateQueries({ queryKey: KEY });
+      void queryClient.invalidateQueries({ queryKey: ["supervisor-audit"] });
       void queryClient.invalidateQueries({ queryKey: ["athletes"] });
     },
     onError: (e) => toast.error(errMsg(e)),
@@ -58,6 +60,7 @@ function BoardPermissions() {
     onSuccess: () => {
       toast.success("Permessi aggiornati");
       void queryClient.invalidateQueries({ queryKey: KEY });
+      void queryClient.invalidateQueries({ queryKey: ["supervisor-audit"] });
     },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -132,6 +135,51 @@ function AccountsList({ role, title }: { role: "merchant" | "athlete"; title: st
   );
 }
 
+const ACTIONS: Record<string, string> = {
+  permissions: "ha cambiato i permessi di",
+  status: "ha cambiato lo stato di",
+  admin_added: "ha aggiunto al Direttivo",
+  admin_removed: "ha rimosso dal Direttivo",
+  athlete_status: "ha cambiato lo stato dell'atleta",
+  athlete_merge: "ha unito gli account atleta",
+};
+
+function describe(e: AuditEntry): string {
+  const d = e.detail ?? {};
+  if (Array.isArray(d.areas)) return (d.areas as BoardArea[]).map((a) => AREA_LABELS[a] ?? a).join(", ") || "nessuna area";
+  if (typeof d.active === "boolean") return d.active ? "attivato / sbloccato" : "disattivato / bloccato";
+  if (typeof d.transactions === "number") return `${d.transactions} acquisti spostati`;
+  return "";
+}
+
+function AuditLog() {
+  const q = useQuery({ queryKey: ["supervisor-audit"], queryFn: () => apiGet<AuditEntry[]>("/admin/supervisor/audit") });
+  const rows = q.data ?? [];
+  return (
+    <section className="space-y-3" data-testid="supervisor-audit">
+      <h2 className="font-semibold">Registro attività</h2>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground" data-testid="supervisor-audit-empty">Nessuna attività registrata.</p>
+      ) : (
+        <ol className="max-h-[28rem] divide-y overflow-y-auto rounded-xl border bg-card">
+          {rows.map((e, i) => (
+            <li key={`${e.at}-${i}`} className="px-4 py-2.5 text-sm" data-testid={`supervisor-audit-row-${i}`}>
+              <p>
+                <strong className="break-all">{e.actor_email || "sistema"}</strong> {ACTIONS[e.action] ?? e.action}{" "}
+                <strong className="break-all">{e.target_email}</strong>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {dateTime(e.at)}
+                {describe(e) && ` · ${describe(e)}`}
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
 export default function SupervisorTab() {
   return (
     <div className="space-y-8">
@@ -144,6 +192,7 @@ export default function SupervisorTab() {
         <AccountsList role="merchant" title="Account commercianti" />
         <AccountsList role="athlete" title="Account atleti" />
       </div>
+      <AuditLog />
     </div>
   );
 }

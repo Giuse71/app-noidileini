@@ -121,3 +121,9 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - Admin.tsx: tabs filtered by areas (TAB_AREA), Supervisore tab (SupervisorTab.tsx) first for the supervisor.
 - 2FA by email for every role: login → db.login_codes (hashed 6-digit code, 10 min, 5 attempts) + send_login_code; POST /api/auth/login/verify {challenge_id, code, trust_device} → session + lv_trust cookie (30 days, skips the code); POST /api/auth/login/resend (45 s throttle). Demo addresses cannot log in. Login.tsx shows login-otp-form.
 - Supervisor account gi.mannone@gmail.com (was a merchant login for shop "Mirò": the shop was detached, merchants.user_id=None, detached_from kept).
+
+## Dispositivi fidati (300 giorni), registro attività, inviti con aree, privacy
+- db.trusted_devices {id, user_id, label, created_at, last_used_at, expires_at (+300d), revoked}; lv_trust cookie JWT carries did; is_trusted_device checks the DB record (revocable). GET /api/auth/devices, DELETE /api/auth/devices/{id}. UI: TrustedDevicesDialog (trusted-devices-button) in AppShell header for every role.
+- lib/audit.audit(actor, action, target, detail) → db.audit_log; logged: permissions, status (supervisor), admin_added/admin_removed, athlete_status, athlete_merge. GET /api/admin/supervisor/audit (supervisor only, latest 300) → "Registro attività" in SupervisorTab.
+- POST /api/admin/admins {email, areas?}: stored as permissions, limited to the inviter's own areas. BoardTab shows area chips (board-new-area-*).
+- /privacy page (Privacy.tsx): GDPR notice incl. sensitive data/minors, permissions per board area, trusted devices 300 days; linked from landing footer and login.

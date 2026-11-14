@@ -125,20 +125,33 @@ async def require_super(user: dict = Depends(current_user)) -> dict:
     return user
 
 
-# ---------- trusted device for the email login code (30 days) ----------
+# ---------- trusted devices for the email login code (300 days, stored server-side so users can revoke them) ----------
 TRUST_COOKIE = "lv_trust"
-TRUST_DAYS = 30
+TRUST_DAYS = 300
 
 
-def set_trusted_device(response: Response, request: Request, user_id: str) -> None:
-    exp = datetime.now(timezone.utc) + timedelta(days=TRUST_DAYS)
-    token = jwt.encode({"sub": user_id, "typ": "trust", "exp": exp}, JWT_SECRET, algorithm="HS256")
+def _device_label(ua: str) -> str:
+    ua = ua or ""
+    os_ = next((n for k, n in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"), ("Windows", "Windows"),
+                                ("Mac OS", "Mac"), ("Linux", "Linux")) if k in ua), "Dispositivo")
+    br = next((n for k, n in (("Edg/", "Edge"), ("SamsungBrowser", "Samsung Internet"), ("CriOS", "Chrome"), ("Chrome/", "Chrome"),
+                               ("Firefox/", "Firefox"), ("Safari/", "Safari")) if k in ua), "browser")
+    return f"{br} su {os_}"
+
+
+async def set_trusted_device(response: Response, request: Request, user_id: str) -> None:
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(days=TRUST_DAYS)
+    device_id = secrets.token_urlsafe(16)
+    await db.trusted_devices.insert_one({"id": device_id, "user_id": user_id, "label": _device_label(request.headers.get("user-agent", "")),
+                                         "created_at": now, "last_used_at": now, "expires_at": exp, "revoked": False})
+    token = jwt.encode({"sub": user_id, "did": device_id, "typ": "trust", "exp": exp}, JWT_SECRET, algorithm="HS256")
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     response.set_cookie(TRUST_COOKIE, token, httponly=True, samesite="lax", secure=proto == "https",
                         max_age=TRUST_DAYS * 86400, path="/")
 
 
-def is_trusted_device(request: Request, user_id: str) -> bool:
+async def is_trusted_device(request: Request, user_id: str) -> bool:
     token = request.cookies.get(TRUST_COOKIE)
     if not token:
         return False
@@ -146,4 +159,17 @@ def is_trusted_device(request: Request, user_id: str) -> bool:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
     except jwt.PyJWTError:
         return False
-    return payload.get("typ") == "trust" and payload.get("sub") == user_id
+    if payload.get("typ") != "trust" or payload.get("sub") != user_id or not payload.get("did"):
+        return False
+    res = await db.trusted_devices.update_one(
+        {"id": payload["did"], "user_id": user_id, "revoked": False, "expires_at": {"$gt": datetime.now(timezone.utc)}},
+        {"$set": {"last_used_at": datetime.now(timezone.utc)}},
+    )
+    return res.matched_count == 1
+
+
+def current_device_id(request: Request) -> str | None:
+    try:
+        return jwt.decode(request.cookies.get(TRUST_COOKIE, ""), JWT_SECRET, algorithms=["HS256"]).get("did")
+    except jwt.PyJWTError:
+        return None

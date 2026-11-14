@@ -10,14 +10,17 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from lib.auth import AREAS, is_super, require_super, user_areas
 from lib.db import db
-from models.schemas import AccountOut, PermissionsIn, UserStatusIn, now_utc
+from models.schemas import AccountOut, AuditEntry, PermissionsIn, UserStatusIn, now_utc
 
 router = APIRouter(prefix="/admin/supervisor", tags=["supervisor"])
 
 
-async def _audit(actor: dict, action: str, target: dict, detail: dict) -> None:
-    await db.audit_log.insert_one({"at": now_utc(), "actor_id": actor["id"], "actor_email": actor["email"], "action": action,
-                                   "target_id": target["id"], "target_email": target["email"], "detail": detail})
+from lib.audit import audit as _audit  # noqa: E402
+
+
+@router.get("/audit", response_model=List[AuditEntry])
+async def audit_feed(_: dict = Depends(require_super)):
+    return await db.audit_log.find({}, {"_id": 0}).sort("at", -1).to_list(300)
 
 
 async def _account(u: dict) -> AccountOut:

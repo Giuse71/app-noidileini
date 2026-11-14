@@ -155,6 +155,7 @@ export default function Landing() {
             {(assoc?.address || assoc?.city) && <p>{[assoc?.address, assoc?.city].filter(Boolean).join(" · ")}</p>}
             {assoc?.email && <p>{assoc.email}</p>}
             {assoc?.phone && <p>{assoc.phone}</p>}
+            <p><Link to="/privacy" className="text-primary hover:underline" data-testid="landing-privacy-link">Informativa sulla privacy</Link></p>
             {(assoc?.vat_number || assoc?.fiscal_code) && (
               <p>
                 {assoc?.vat_number && `P.IVA ${assoc.vat_number}`} {assoc?.fiscal_code && `C.F. ${assoc.fiscal_code}`}

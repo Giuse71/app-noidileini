@@ -190,7 +190,7 @@ export default function Login() {
                   </Field>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={trust} onChange={(e) => setTrust(e.target.checked)} className="size-4 accent-primary" data-testid="login-otp-trust" />
-                    Ricorda questo dispositivo per 30 giorni
+                    Ricorda questo dispositivo per 300 giorni
                   </label>
                   <Button type="submit" className="w-full" disabled={verifyOtp.isPending || code.length !== 6} data-testid="login-otp-submit">
                     {verifyOtp.isPending && <Loader2 className="size-4 animate-spin" />} Conferma e accedi
@@ -219,6 +219,9 @@ export default function Login() {
               </form>
               )}
               {!otp && <ForgotPasswordDialog initialEmail={email} />}
+              <p className="text-center text-xs text-muted-foreground">
+                Accedendo o registrandoti accetti l'<Link to="/privacy" className="text-primary hover:underline" data-testid="login-privacy-link">informativa sulla privacy</Link>.
+              </p>
             </TabsContent>
 
             <TabsContent value="atleta" className="mt-6 space-y-6">

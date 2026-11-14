@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
-from lib.auth import clear_session, current_user, hash_password, is_super, is_trusted_device, set_session, set_trusted_device, user_areas, verify_password
+from lib.auth import clear_session, current_device_id, current_user, hash_password, is_super, is_trusted_device, set_session, set_trusted_device, user_areas, verify_password
 from lib.categories import resolve_category
 from lib.db import db
 from lib.storage import save_gallery, save_image
@@ -17,6 +17,7 @@ OTP_ATTEMPTS = 5
 
 UNVERIFIED = "Conferma prima la tua email: apri il link che ti abbiamo inviato (controlla anche lo spam)"
 from models.schemas import (
+    TrustedDevice,
     LoginResult,
     OtpResendIn,
     OtpVerifyIn,
@@ -116,7 +117,7 @@ async def login(body: LoginIn, request: Request, response: Response, background:
     if user.get("email_verified") is False:
         raise HTTPException(status_code=403, detail=UNVERIFIED)
     # second factor for everyone: a 6-digit code by email, skipped on a device trusted in the last 30 days
-    if is_trusted_device(request, user["id"]):
+    if await is_trusted_device(request, user["id"]):
         set_session(response, request, user["id"])
         return LoginResult(otp_required=False, me=await build_me(user))
     if is_demo(user["email"]):
@@ -146,7 +147,7 @@ async def login_verify(body: OtpVerifyIn, request: Request, response: Response):
         raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
     set_session(response, request, user["id"])
     if body.trust_device:
-        set_trusted_device(response, request, user["id"])
+        await set_trusted_device(response, request, user["id"])
     return await build_me(user)
 
 
@@ -250,3 +251,21 @@ async def me(request: Request):
     except HTTPException:
         return None
     return await build_me(user)
+
+
+# ---------- trusted devices (skip the email code for 300 days) ----------
+@router.get("/devices", response_model=list[TrustedDevice])
+async def my_devices(request: Request, user: dict = Depends(current_user)):
+    mine = current_device_id(request)
+    docs = await db.trusted_devices.find({"user_id": user["id"], "revoked": False, "expires_at": {"$gt": now_utc()}},
+                                         {"_id": 0}).sort("last_used_at", -1).to_list(50)
+    return [TrustedDevice(**d, is_current=d["id"] == mine) for d in docs]
+
+
+@router.delete("/devices/{id}")
+async def revoke_device(id: str, user: dict = Depends(current_user)):
+    res = await db.trusted_devices.update_one({"id": id, "user_id": user["id"], "revoked": False},
+                                              {"$set": {"revoked": True, "revoked_at": now_utc()}})
+    if not res.modified_count:
+        raise HTTPException(status_code=404, detail="Dispositivo non trovato")
+    return {"ok": True}

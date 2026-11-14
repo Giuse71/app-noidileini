@@ -12,6 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from lib.auth import hash_password, require_role
 from lib.categories import resolve_category
+from lib.audit import audit
 from lib.db import db
 from lib.email import EmailError, send_email
 from lib.storage import discard, save_gallery, save_image
@@ -114,7 +115,7 @@ async def list_athletes(q: str = "", category_id: Optional[str] = None,
 
 
 @router.patch("/admin/athletes/{id}/status", response_model=Athlete)
-async def set_athlete_status(id: str, body: AthleteStatusIn, _: dict = Depends(require_role("admin"))):
+async def set_athlete_status(id: str, body: AthleteStatusIn, me: dict = Depends(require_role("admin"))):
     """Soft deactivate/reactivate: blocks login and the card at the till, keeps all history."""
     doc = await db.athletes.find_one_and_update(
         {"id": id}, {"$set": {"is_active": body.active, "deactivated_at": None if body.active else now_utc()}},
@@ -123,6 +124,7 @@ async def set_athlete_status(id: str, body: AthleteStatusIn, _: dict = Depends(r
     if not doc:
         raise HTTPException(status_code=404, detail="Atleta non trovato")
     await db.users.update_one({"id": doc["user_id"]}, {"$set": {"is_active": body.active}})
+    await audit(me, "athlete_status", {"id": doc["user_id"], "email": f'{doc["first_name"]} {doc["last_name"]} ({doc["code"]})'}, {"active": body.active})
     return Athlete(**doc)
 
 
@@ -162,7 +164,7 @@ async def athlete_duplicates():
 
 
 @router.post("/admin/athletes/merge", response_model=AthleteMergeResult)
-async def merge_athletes(body: AthleteMergeIn, _: dict = Depends(require_role("admin"))):
+async def merge_athletes(body: AthleteMergeIn, me: dict = Depends(require_role("admin"))):
     """Moves purchases and family cards of a duplicate account onto the kept one; the duplicate is deactivated (not deleted)."""
     if body.keep_id == body.merge_id:
         raise HTTPException(status_code=400, detail="Scegli due account diversi")
@@ -183,6 +185,7 @@ async def merge_athletes(body: AthleteMergeIn, _: dict = Depends(require_role("a
         await db.athletes.update_one({"id": keep["id"]}, {"$set": {"is_active": True, "deactivated_at": None}})
         await db.users.update_one({"id": keep["user_id"]}, {"$set": {"is_active": True}})
         keep["is_active"] = True
+    await audit(me, "athlete_merge", {"id": keep["user_id"], "email": f'{keep["code"]} ← {dup["code"]}'}, {"transactions": tx.modified_count})
     count = await db.family_members.count_documents({"athlete_id": keep["id"]})
     return AthleteMergeResult(kept=Athlete(**keep, family_count=count), transactions=tx.modified_count, family=fam.modified_count)
 

@@ -300,6 +300,25 @@ class ForgotPasswordIn(BaseModel):
 
 class NewAdminIn(BaseModel):
     email: EmailStr
+    # areas for the new member; None = all the inviter may grant
+    areas: Optional[list[Literal["athletes", "merchants", "reports", "content", "board"]]] = None
+
+
+class TrustedDevice(BaseModel):
+    id: str
+    label: str
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime
+    is_current: bool = False
+
+
+class AuditEntry(BaseModel):
+    at: datetime
+    actor_email: str = ""
+    action: str
+    target_email: str = ""
+    detail: dict = {}
 
 
 class AdminUser(BaseModel):

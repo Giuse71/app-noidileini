@@ -146,6 +146,7 @@ export interface ForgotPasswordIn {
 
 export interface NewAdminIn {
   email: string;
+  areas?: BoardArea[];
 }
 
 export interface AdminUser {
@@ -380,4 +381,21 @@ export interface DuplicateGroup {
   reason: "name" | "email";
   key: string;
   athletes: Athlete[];
+}
+
+export interface TrustedDevice {
+  id: string;
+  label: string;
+  created_at: string;
+  last_used_at: string;
+  expires_at: string;
+  is_current: boolean;
+}
+
+export interface AuditEntry {
+  at: string;
+  actor_email: string;
+  action: string;
+  target_email: string;
+  detail: Record<string, unknown>;
 }

@@ -11,8 +11,9 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from lib.auth import require_role
+from lib.auth import user_areas, require_role
 from lib.dates import today_iso
+from lib.audit import audit
 from lib.db import db
 from lib.email import EmailError, send_email
 from lib.auth import hash_password
@@ -123,17 +124,21 @@ async def list_admins(me: dict = Depends(require_role("admin"))):
     return [AdminUser(**{**d, "is_superadmin": d.get("is_superadmin") is True}, is_me=d["id"] == me["id"]) for d in docs]
 
 
-@router.post("/admin/admins", response_model=AdminUser, dependencies=[Depends(require_role("admin"))])
-async def add_admin(body: NewAdminIn, request: Request):
+@router.post("/admin/admins", response_model=AdminUser)
+async def add_admin(body: NewAdminIn, request: Request, me: dict = Depends(require_role("admin"))):
     email = body.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=409, detail="Email già usata da un altro account")
     base = public_base(request)
     if not base:
         raise HTTPException(status_code=400, detail="Indirizzo pubblico dell'app non disponibile")
+    # a member can only grant areas they have themselves; None (all) only from the supervisor or a full member
+    mine = user_areas(me)
+    areas = [a for a in (body.areas if body.areas is not None else mine) if a in mine]
     user = {"id": new_id(), "email": email, "password_hash": hash_password(secrets.token_urlsafe(24)),
-            "role": "admin", "created_at": now_utc()}
+            "role": "admin", "permissions": areas, "created_at": now_utc()}
     await db.users.insert_one(dict(user))
+    await audit(me, "admin_added", user, {"areas": areas})
     if not is_demo(email):
         try:
             await _invite_admin(user, base)
@@ -169,7 +174,9 @@ async def remove_admin(id: str, me: dict = Depends(require_role("admin"))):
         raise HTTPException(status_code=404, detail="Membro non trovato")
     if await db.users.count_documents({"role": "admin"}) <= 1:
         raise HTTPException(status_code=400, detail="Deve restare almeno un membro del direttivo")
+    removed = await db.users.find_one({"id": id, "role": "admin"}, {"_id": 0, "id": 1, "email": 1})
     await db.users.delete_one({"id": id, "role": "admin"})
+    await audit(me, "admin_removed", removed)
     await db.password_tokens.update_many({"user_id": id, "used": False}, {"$set": {"used": True}})
     return {"ok": True}
 
