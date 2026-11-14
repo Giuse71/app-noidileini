@@ -16,6 +16,7 @@ import { AdminMerchantsTab, ReportsTab } from "@/components/AdminExtras";
 import RankingTab from "@/components/RankingTab";
 import BoardTab from "@/components/BoardTab";
 import SupervisorTab from "@/components/SupervisorTab";
+import InviteCard from "@/components/InviteCard";
 import { useMe } from "@/lib/session";
 import type { BoardArea } from "@/lib/types";
 import { AthletesTab, ProposedCategories } from "@/components/AthletesAdmin";
@@ -298,6 +299,7 @@ export default function Admin() {
         <p className="text-xs font-bold uppercase tracking-wider text-gold-ink">Portale direttivo</p>
         <h1 className="text-2xl font-semibold tracking-tight">Convenzione Sponsor · {assoc.data?.name ?? "Leinì Volley"}</h1>
       </div>
+      <InviteCard />
       <Tabs key={firstTab} defaultValue={firstTab}>
         <div className="overflow-x-auto">
           <TabsList data-testid="admin-tabs">

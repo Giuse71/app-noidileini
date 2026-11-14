@@ -69,9 +69,9 @@ async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
-from routers import auth as auth_router, board_content, club, files, icons, members, supervisor, notify, reports, transactions  # noqa: E402
+from routers import auth as auth_router, board_content, club, files, icons, invite, members, supervisor, notify, reports, transactions  # noqa: E402
 
-for _r in (auth_router.router, club.router, members.router, transactions.router, reports.router, notify.router, files.router, icons.router, board_content.router, supervisor.router):
+for _r in (auth_router.router, club.router, members.router, transactions.router, reports.router, notify.router, files.router, icons.router, board_content.router, supervisor.router, invite.router):
     api_router.include_router(_r)
 
 # Include the router in the main app

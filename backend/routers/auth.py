@@ -77,7 +77,7 @@ async def register_athlete(body: AthleteRegister, request: Request, background: 
     cat_id, cat_name = await resolve_category(body.category_id, body.category_custom)
     # self-registered accounts stay locked until the email address is confirmed
     user = {"id": new_id(), "email": email, "password_hash": hash_password(body.password),
-            "role": "athlete", "email_verified": False, "created_at": now_utc()}
+            "role": "athlete", "email_verified": False, "via_invite": body.via_invite, "created_at": now_utc()}
     photo = await save_image(body.photo, kind="athletes", owner_user_id=user["id"], public=False)
     await db.users.insert_one(user)
     await db.athletes.insert_one({
@@ -94,8 +94,8 @@ async def register_merchant(body: MerchantRegister, request: Request, background
     email = body.account_email.lower()
     await ensure_email_free(email)
     user = {"id": new_id(), "email": email, "password_hash": hash_password(body.password),
-            "role": "merchant", "email_verified": False, "created_at": now_utc()}
-    profile = MerchantUpdate(**body.model_dump()).model_dump()
+            "role": "merchant", "email_verified": False, "via_invite": body.via_invite, "created_at": now_utc()}
+    profile = MerchantUpdate(**body.model_dump(exclude={"via_invite", "account_email", "password"})).model_dump()
     profile["logo"] = await save_image(profile["logo"], kind="merchants", owner_user_id=user["id"], public=True)
     profile["gallery"] = await save_gallery(profile["gallery"], owner_user_id=user["id"])
     profile = await resolve_coords(profile, None)

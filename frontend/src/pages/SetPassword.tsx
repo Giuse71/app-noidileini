@@ -71,7 +71,7 @@ export default function SetPassword() {
               </p>
             </div>
             <Field label="Nuova password" htmlFor="sp-pw" hint="Almeno 6 caratteri">
-              <PasswordInput id="sp-pw" required minLength={6} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} data-testid="set-password-input" />
+              <PasswordInput id="sp-pw" strength required minLength={6} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} data-testid="set-password-input" />
             </Field>
             <Field label="Ripeti la password" htmlFor="sp-pw2">
               <PasswordInput id="sp-pw2" required minLength={6} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} data-testid="set-password-confirm-input" />

@@ -6,6 +6,7 @@ import Login from "@/pages/Login";
 import SetPassword from "@/pages/SetPassword";
 import VerifyEmail from "@/pages/VerifyEmail";
 import Privacy from "@/pages/Privacy";
+import Invite from "@/pages/Invite";
 import AthleteCard from "@/pages/AthleteCard";
 import AthleteConvenzioni from "@/pages/AthleteConvenzioni";
 import AthleteMovements from "@/pages/AthleteMovements";
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/imposta-password" element={<SetPassword />} />
         <Route path="/verifica-email" element={<VerifyEmail />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/invito" element={<Invite />} />
         <Route path="/atleta" element={<AthleteLayout />}>
           <Route index element={<AthleteCard />} />
           <Route path="convenzioni" element={<AthleteConvenzioni />} />

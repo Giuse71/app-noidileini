@@ -47,6 +47,7 @@ export interface AthleteUpdate {
 export interface AthleteRegister extends AthleteUpdate {
   email: string;
   password: string;
+  via_invite?: boolean;
 }
 
 export interface Athlete {
@@ -236,6 +237,13 @@ export interface SendReportResult {
 export interface MerchantRegister extends MerchantUpdate {
   account_email: string;
   password: string;
+  via_invite?: boolean;
+}
+
+export interface InviteStats {
+  visits: number;
+  athletes: number;
+  merchants: number;
 }
 
 export type BoardArea = "athletes" | "merchants" | "reports" | "content" | "board";

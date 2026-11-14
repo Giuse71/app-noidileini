@@ -133,3 +133,8 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - Login email code: a code issued in the last 120 s is reused (no new email); max 6 codes/hour per account (429); max 3 resends per challenge (429).
 - Trusted-device cookie is per account (`lv_trust_<userid12>`), so several users on one phone don't overwrite each other; legacy `lv_trust` still accepted.
 - Gmail: after a rejected login Gmail is skipped for 10 min and emails go straight through Emergent email (fallback).
+
+## Club invite link & password strength
+- Public `/invito` welcome page (choose athlete / merchant → `/login?tab=…`). First visit per browser session calls `POST /api/invite/visit` and sets localStorage `lv_invite=1`; registrations then send `via_invite: true` (stored on the user doc).
+- `GET /api/admin/invite` (admin) → `InviteStats {visits, athletes, merchants}`. `InviteCard` at the top of the board portal: copy link, WhatsApp share, printable QR, counters.
+- New-password fields (registration, set-password, change-password) show a 4-step strength bar (`<testid>-strength`, label `…-strength-label`: Troppo corta/Debole/Discreta/Buona/Forte).

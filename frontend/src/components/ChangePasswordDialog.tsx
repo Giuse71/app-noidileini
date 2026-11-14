@@ -55,7 +55,7 @@ export default function ChangePasswordDialog() {
               <PasswordInput id="cp-current" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} data-testid="change-password-current-input" />
             </Field>
             <Field label="Nuova password" htmlFor="cp-new">
-              <PasswordInput id="cp-new" required minLength={6} autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} data-testid="change-password-new-input" />
+              <PasswordInput id="cp-new" strength required minLength={6} autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} data-testid="change-password-new-input" />
             </Field>
             <Field label="Ripeti la nuova password" htmlFor="cp-confirm">
               <PasswordInput id="cp-confirm" required minLength={6} autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} data-testid="change-password-confirm-input" />

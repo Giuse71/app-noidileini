@@ -162,6 +162,7 @@ class AthleteUpdate(BaseModel):
 class AthleteRegister(AthleteUpdate):
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
+    via_invite: bool = False  # arrived through the club invite link (/invito)
 
 
 # ---------- merchants ----------
@@ -226,6 +227,13 @@ class AdminMerchantSave(MerchantUpdate):
 class MerchantRegister(MerchantUpdate):
     account_email: EmailStr
     password: str = Field(min_length=6, max_length=128)
+    via_invite: bool = False
+
+
+class InviteStats(BaseModel):
+    visits: int = 0
+    athletes: int = 0
+    merchants: int = 0
 
 
 # ---------- auth ----------

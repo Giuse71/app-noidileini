@@ -22,7 +22,7 @@ function Credentials({ email, password, setEmail, setPassword, prefix }: { email
         <Input id={`${prefix}-email`} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid={`${prefix}-email-input`} />
       </Field>
       <Field label="Password" htmlFor={`${prefix}-password`} hint={prefix === "login" ? undefined : "Almeno 6 caratteri"}>
-        <PasswordInput id={`${prefix}-password`} required minLength={6} autoComplete={prefix === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} data-testid={`${prefix}-password-input`} />
+        <PasswordInput id={`${prefix}-password`} required minLength={6} strength={prefix !== "login"} autoComplete={prefix === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} data-testid={`${prefix}-password-input`} />
       </Field>
     </div>
   );
@@ -55,6 +55,7 @@ export default function Login() {
   const onError = (e: unknown) => toast.error(errMsg(e));
 
   const onRegistered = (r: RegisterResult) => {
+    localStorage.removeItem("lv_invite");
     setPending(r.email);
     setTab("accedi");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -73,6 +74,7 @@ export default function Login() {
       onError(e);
     },
   });
+  const viaInvite = localStorage.getItem("lv_invite") === "1";
   const regAth = useMutation({ mutationFn: (b: AthleteRegister) => apiPost<RegisterResult>("/auth/register/athlete", b), onSuccess: onRegistered, onError });
   const regMer = useMutation({ mutationFn: (b: MerchantRegister) => apiPost<RegisterResult>("/auth/register/merchant", b), onSuccess: onRegistered, onError });
   const verifyOtp = useMutation({
@@ -99,7 +101,7 @@ export default function Login() {
       toast.error("Scegli o scrivi la categoria di appartenenza");
       return;
     }
-    regAth.mutate(ath);
+    regAth.mutate({ ...ath, via_invite: viaInvite });
   }
 
   return (
@@ -254,7 +256,7 @@ export default function Login() {
                 className="space-y-5 rounded-xl border bg-card p-5"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  regMer.mutate(mer);
+                  regMer.mutate({ ...mer, via_invite: viaInvite });
                 }}
               >
                 <MerchantFields value={mer} onChange={(v) => setMer({ ...mer, ...v })} showMap={false} />
