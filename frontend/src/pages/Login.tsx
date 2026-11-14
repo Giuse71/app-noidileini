@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import PasswordInput from "@/components/PasswordInput";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Crest from "@/components/Crest";
 import ForgotPasswordDialog from "@/components/ForgotPasswordDialog";
@@ -21,7 +22,7 @@ function Credentials({ email, password, setEmail, setPassword, prefix }: { email
         <Input id={`${prefix}-email`} type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid={`${prefix}-email-input`} />
       </Field>
       <Field label="Password" htmlFor={`${prefix}-password`} hint={prefix === "login" ? undefined : "Almeno 6 caratteri"}>
-        <Input id={`${prefix}-password`} type="password" required minLength={6} autoComplete={prefix === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} data-testid={`${prefix}-password-input`} />
+        <PasswordInput id={`${prefix}-password`} required minLength={6} autoComplete={prefix === "login" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} data-testid={`${prefix}-password-input`} />
       </Field>
     </div>
   );

@@ -1,6 +1,7 @@
 """Email: Gmail SMTP when GMAIL_USER + GMAIL_APP_PASSWORD are set, else Emergent managed email (Resend) — send helper + guardrail gate (from the integration playbook)."""
 
 import asyncio
+import time
 import ipaddress
 import logging
 import os
@@ -26,8 +27,11 @@ GMAIL_USER = (os.environ.get("GMAIL_USER") or "").strip()
 GMAIL_APP_PASSWORD = (os.environ.get("GMAIL_APP_PASSWORD") or "").replace(" ", "")
 
 
+_gmail_off_until = 0.0  # after a rejected login, skip Gmail for a while instead of waiting on it for every email
+
+
 def gmail_enabled() -> bool:
-    return bool(GMAIL_USER and GMAIL_APP_PASSWORD)
+    return bool(GMAIL_USER and GMAIL_APP_PASSWORD) and time.monotonic() >= _gmail_off_until
 
 
 def _plain_text(html: str) -> str:
@@ -140,7 +144,9 @@ async def send_email(*, to: list[str], subject: str, html: str, reply_to: str | 
         try:
             return await asyncio.to_thread(_send_gmail_sync, to, subject, html, reply_to or EMAIL_REPLY_TO)
         except (smtplib.SMTPAuthenticationError, smtplib.SMTPServerDisconnected):  # Gmail drops the line on a bad app password
-            logger.error("Gmail login rejected: check GMAIL_USER / GMAIL_APP_PASSWORD")
+            global _gmail_off_until
+            _gmail_off_until = time.monotonic() + 600
+            logger.error("Gmail login rejected: check GMAIL_USER / GMAIL_APP_PASSWORD (paused 10 min)")
             if gmail_only or not EMAIL_KEY:
                 raise EmailError("Accesso Gmail rifiutato: controlla la password per le app")
         except Exception as e:  # noqa: BLE001

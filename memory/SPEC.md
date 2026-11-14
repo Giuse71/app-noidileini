@@ -127,3 +127,9 @@ POST /transactions (merchant) · GET /transactions/mine (athlete|merchant) · GE
 - lib/audit.audit(actor, action, target, detail) → db.audit_log; logged: permissions, status (supervisor), admin_added/admin_removed, athlete_status, athlete_merge. GET /api/admin/supervisor/audit (supervisor only, latest 300) → "Registro attività" in SupervisorTab.
 - POST /api/admin/admins {email, areas?}: stored as permissions, limited to the inviter's own areas. BoardTab shows area chips (board-new-area-*).
 - /privacy page (Privacy.tsx): GDPR notice incl. sensitive data/minors, permissions per board area, trusted devices 300 days; linked from landing footer and login.
+
+## Password visibility & login-code limits (latest)
+- Every password field (login, registration, set-password, change-password) uses `PasswordInput` with an eye toggle (`<testid>-toggle`).
+- Login email code: a code issued in the last 120 s is reused (no new email); max 6 codes/hour per account (429); max 3 resends per challenge (429).
+- Trusted-device cookie is per account (`lv_trust_<userid12>`), so several users on one phone don't overwrite each other; legacy `lv_trust` still accepted.
+- Gmail: after a rejected login Gmail is skipped for 10 min and emails go straight through Emergent email (fallback).

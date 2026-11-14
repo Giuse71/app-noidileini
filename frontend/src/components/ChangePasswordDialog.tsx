@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import PasswordInput from "@/components/PasswordInput";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/ProfileFields";
 import { apiPost } from "@/lib/api";
@@ -52,13 +52,13 @@ export default function ChangePasswordDialog() {
             }}
           >
             <Field label="Password attuale" htmlFor="cp-current">
-              <Input id="cp-current" type="password" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} data-testid="change-password-current-input" />
+              <PasswordInput id="cp-current" required autoComplete="current-password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} data-testid="change-password-current-input" />
             </Field>
             <Field label="Nuova password" htmlFor="cp-new">
-              <Input id="cp-new" type="password" required minLength={6} autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} data-testid="change-password-new-input" />
+              <PasswordInput id="cp-new" required minLength={6} autoComplete="new-password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} data-testid="change-password-new-input" />
             </Field>
             <Field label="Ripeti la nuova password" htmlFor="cp-confirm">
-              <Input id="cp-confirm" type="password" required minLength={6} autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} data-testid="change-password-confirm-input" />
+              <PasswordInput id="cp-confirm" required minLength={6} autoComplete="new-password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} data-testid="change-password-confirm-input" />
             </Field>
             <Button type="submit" className="w-full" disabled={save.isPending} data-testid="change-password-submit-button">
               {save.isPending && <Loader2 className="size-4 animate-spin" />} Aggiorna password

@@ -14,6 +14,8 @@ from lib.geocode import resolve_coords
 from routers.notify import OTP_MINUTES, announce_merchant, is_demo, public_base, send_login_code, send_verification, token_hash
 
 OTP_ATTEMPTS = 5
+OTP_REUSE_SECONDS = 120
+OTP_PER_HOUR = 6
 
 UNVERIFIED = "Conferma prima la tua email: apri il link che ti abbiamo inviato (controlla anche lo spam)"
 from models.schemas import (
@@ -116,20 +118,29 @@ async def login(body: LoginIn, request: Request, response: Response, background:
         raise HTTPException(status_code=403, detail="Account disattivato: contatta il direttivo")
     if user.get("email_verified") is False:
         raise HTTPException(status_code=403, detail=UNVERIFIED)
-    # second factor for everyone: a 6-digit code by email, skipped on a device trusted in the last 30 days
+    # second factor for everyone: a 6-digit code by email, skipped on a device trusted in the last 300 days
     if await is_trusted_device(request, user["id"]):
         set_session(response, request, user["id"])
         return LoginResult(otp_required=False, me=await build_me(user))
     if is_demo(user["email"]):
         raise HTTPException(status_code=403, detail="Questo indirizzo non può ricevere il codice di accesso")
+    local, _, domain = user["email"].partition("@")
+    hint = f"{local[:2]}•••@{domain}"
+    # a code sent in the last 2 minutes is still on its way: reuse it instead of mailing another one
+    recent = await db.login_codes.find_one({"user_id": user["id"], "used": False, "expires_at": {"$gt": now_utc()},
+                                            "created_at": {"$gt": now_utc() - timedelta(seconds=OTP_REUSE_SECONDS)}},
+                                           sort=[("created_at", -1)])
+    if recent:
+        return LoginResult(otp_required=True, challenge_id=recent["id"], email_hint=hint)
+    if await db.login_codes.count_documents({"user_id": user["id"], "created_at": {"$gt": now_utc() - timedelta(hours=1)}}) >= OTP_PER_HOUR:
+        raise HTTPException(status_code=429, detail="Troppi codici richiesti: riprova tra un'ora o usa l'ultimo codice ricevuto")
     challenge_id = secrets.token_urlsafe(24)
     code = f"{secrets.randbelow(1_000_000):06d}"
     await db.login_codes.update_many({"user_id": user["id"], "used": False}, {"$set": {"used": True}})
     await db.login_codes.insert_one({"id": challenge_id, "user_id": user["id"], "code_hash": token_hash(code), "used": False,
                                      "attempts": 0, "expires_at": now_utc() + timedelta(minutes=OTP_MINUTES), "created_at": now_utc()})
     background.add_task(send_login_code, user["email"], code)
-    local, _, domain = user["email"].partition("@")
-    return LoginResult(otp_required=True, challenge_id=challenge_id, email_hint=f"{local[:2]}•••@{domain}")
+    return LoginResult(otp_required=True, challenge_id=challenge_id, email_hint=hint)
 
 
 @router.post("/login/verify", response_model=Me)
@@ -158,9 +169,12 @@ async def login_resend(body: OtpResendIn, background: BackgroundTasks):
         raise HTTPException(status_code=400, detail="Codice scaduto: accedi di nuovo")
     if doc["created_at"] > now_utc() - timedelta(seconds=45) and doc.get("resent_at", doc["created_at"]) > now_utc() - timedelta(seconds=45):
         raise HTTPException(status_code=429, detail="Attendi qualche secondo prima di chiedere un nuovo codice")
+    if doc.get("resends", 0) >= 3:
+        raise HTTPException(status_code=429, detail="Hai già chiesto 3 nuovi codici: controlla lo spam o accedi di nuovo più tardi")
     user = await db.users.find_one({"id": doc["user_id"]}, {"_id": 0, "email": 1})
     code = f"{secrets.randbelow(1_000_000):06d}"
     await db.login_codes.update_one({"id": doc["id"]}, {"$set": {"code_hash": token_hash(code), "attempts": 0, "resent_at": now_utc(),
+                                                                   "resends": doc.get("resends", 0) + 1,
                                                                    "expires_at": now_utc() + timedelta(minutes=OTP_MINUTES)}})
     background.add_task(send_login_code, user["email"], code)
     return {"ok": True}
@@ -256,7 +270,7 @@ async def me(request: Request):
 # ---------- trusted devices (skip the email code for 300 days) ----------
 @router.get("/devices", response_model=list[TrustedDevice])
 async def my_devices(request: Request, user: dict = Depends(current_user)):
-    mine = current_device_id(request)
+    mine = current_device_id(request, user["id"])
     docs = await db.trusted_devices.find({"user_id": user["id"], "revoked": False, "expires_at": {"$gt": now_utc()}},
                                          {"_id": 0}).sort("last_used_at", -1).to_list(50)
     return [TrustedDevice(**d, is_current=d["id"] == mine) for d in docs]

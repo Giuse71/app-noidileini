@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import PasswordInput from "@/components/PasswordInput";
 import Crest from "@/components/Crest";
 import { Field } from "@/components/ProfileFields";
 import { apiGet, apiPost } from "@/lib/api";
@@ -71,10 +71,10 @@ export default function SetPassword() {
               </p>
             </div>
             <Field label="Nuova password" htmlFor="sp-pw" hint="Almeno 6 caratteri">
-              <Input id="sp-pw" type="password" required minLength={6} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} data-testid="set-password-input" />
+              <PasswordInput id="sp-pw" required minLength={6} autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} data-testid="set-password-input" />
             </Field>
             <Field label="Ripeti la password" htmlFor="sp-pw2">
-              <Input id="sp-pw2" type="password" required minLength={6} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} data-testid="set-password-confirm-input" />
+              <PasswordInput id="sp-pw2" required minLength={6} autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} data-testid="set-password-confirm-input" />
             </Field>
             <Button type="submit" className="w-full" disabled={save.isPending || info.isLoading} data-testid="set-password-submit">
               {save.isPending && <Loader2 className="size-4 animate-spin" />} Salva e accedi
